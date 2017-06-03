@@ -1,7 +1,18 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard1.4</TargetFramework>
+    <TargetFramework>netstandard1.1</TargetFramework>
+    <Authors>NSDN</Authors>
+    <Company>NSDN</Company>
+    <Description>NyaSama Assembly Script Module in .NET</Description>
+    <Copyright>Copyright © NSDN 2014 - 2017</Copyright>
+    <SignAssembly>False</SignAssembly>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="dotNSASM.Launcher\**" />
+    <EmbeddedResource Remove="dotNSASM.Launcher\**" />
+    <None Remove="dotNSASM.Launcher\**" />
+  </ItemGroup>
 
 </Project>

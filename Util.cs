@@ -1,23 +1,42 @@
 ﻿using System;
+using System.IO;
+using System.Globalization;
 using System.Collections.Generic;
 
 namespace dotNSASM
 {
-    class Util
+    public class Util
     {
+        public delegate void Printer(Object value);
+        public delegate string Scanner();
+        public delegate string FileReader(string path);
+
+        public static Printer Output
+        {
+            internal get; set;
+        }
+        public static Scanner Input
+        {
+            internal get; set;
+        }
+        public static FileReader FileInput
+        {
+            internal get; set;
+        }
+
         public static void Print(Object value)
         {
-            Console.Write(value);
+            Output.Invoke(value);
         }
 
-        public static String Scan()
+        public static string Scan()
         {
-            return Console.ReadLine();
+            return Input.Invoke();
         }
 
-        private static String cleanSymbol(String var, String symbol, String trash)
+        private static string CleanSymbol(string var, string symbol, string trash)
         {
-            String tmp = var;
+            string tmp = var;
             while (tmp.Contains(symbol + trash))
                 tmp = tmp.Replace(symbol + trash, symbol);
             while (tmp.Contains(trash + symbol))
@@ -25,9 +44,9 @@ namespace dotNSASM
             return tmp;
         }
 
-        private static String cleanSymbol(String var, String symbol, String trashA, String trashB)
+        private static string CleanSymbol(string var, string symbol, string trashA, string trashB)
         {
-            String tmp = var;
+            string tmp = var;
             while (tmp.Contains(symbol + trashA) || tmp.Contains(symbol + trashB))
                 tmp = tmp.Replace(symbol + trashA, symbol).Replace(symbol + trashB, symbol);
             while (tmp.Contains(trashA + symbol) || tmp.Contains(trashB + symbol))
@@ -35,35 +54,35 @@ namespace dotNSASM
             return tmp;
         }
 
-        public static String formatCode(String var)
+        public static string formatCode(string var)
         {
-            if (var.isEmpty()) return "";
+            if (var.Length == 0) return "";
             while (var.Contains("\r"))
             {
                 var = var.Replace("\r", "");
-                if (var.isEmpty()) return "";
+                if (var.Length == 0) return "";
             }
-            while (var.charAt(0) == '\t' || var.charAt(0) == ' ')
+            while (var[0] == '\t' || var[0] == ' ')
             {
-                var = var.substring(1);
-                if (var.isEmpty()) return "";
+                var = var.Substring(1);
+                if (var.Length == 0) return "";
             }
 
-            String left, right;
+            string left, right;
             if (var.Contains("\'"))
             {
-                left = var.split("\'")[0];
-                right = var.substring(left.length());
+                left = var.Split('\'')[0];
+                right = var.Substring(left.Length);
             }
             else if (var.Contains("\""))
             {
-                left = var.split("\"")[0];
-                right = var.substring(left.length());
-                if (right.substring(1).split("\"").length > 1)
+                left = var.Split('\"')[0];
+                right = var.Substring(left.Length);
+                if (right.Substring(1).Split('\"').Length > 1)
                 {
-                    if (right.substring(1).split("\"")[1].Contains("*"))
+                    if (right.Substring(1).Split('\"')[1].Contains("*"))
                     {
-                        right = cleanSymbol(right, "*", "\t", " ");
+                        right = CleanSymbol(right, "*", "\t", " ");
                     }
                 }
             }
@@ -76,262 +95,262 @@ namespace dotNSASM
                 left = left.Replace("\t", " ");
             while (left.Contains("  "))
                 left = left.Replace("  ", " ");
-            left = cleanSymbol(left, ",", " ");
-            left = cleanSymbol(left, "=", " ");
-            left = cleanSymbol(left, "{", "\t", " ");
-            left = cleanSymbol(left, "}", "\t", " ");
+            left = CleanSymbol(left, ",", " ");
+            left = CleanSymbol(left, "=", " ");
+            left = CleanSymbol(left, "{", "\t", " ");
+            left = CleanSymbol(left, "}", "\t", " ");
 
             return left + right;
         }
 
-        public static String[][] getSegments(String var)
+        public static string[][] GetSegments(string var)
         {
-            LinkedHashMap<String, String> segBuf = new LinkedHashMap<>();
-            String varBuf = ""; Scanner scanner = new Scanner(var);
-            LinkedList<String> pub = new LinkedList<>();
+            Dictionary<string, string> segBuf = new Dictionary<string, string>();
+            string varBuf = ""; StringReader reader = new StringReader(var);
+            LinkedList<string> pub = new LinkedList<string>();
 
-            while (scanner.hasNextLine())
+            while (reader.Peek() != -1)
             {
-                varBuf = varBuf.concat(formatCode(scanner.nextLine()) + "\n");
+                varBuf = varBuf + formatCode(reader.ReadLine()) + "\n";
             }
             while (varBuf.Contains("\n\n"))
             {
                 varBuf = varBuf.Replace("\n\n", "\n");
             }
-            scanner = new Scanner(varBuf);
+            reader = new StringReader(varBuf);
 
-            String head, body = "", tmp;
-            while (scanner.hasNextLine())
+            string head, body = "", tmp;
+            while (reader.Peek() != -1)
             {
-                head = scanner.nextLine();
+                head = reader.ReadLine();
                 if (!head.Contains("{"))
                 {
-                    pub.add(head);
+                    pub.AddLast(head);
                     continue;
                 }
                 head = head.Replace("{", "");
 
-                if (scanner.hasNextLine())
+                if (reader.Peek() != -1)
                 {
-                    tmp = scanner.nextLine();
-                    while (!tmp.Contains("}") && scanner.hasNextLine())
+                    tmp = reader.ReadLine();
+                    while (!tmp.Contains("}") && reader.Peek() != -1)
                     {
-                        body = body.concat(tmp + "\n");
-                        tmp = scanner.nextLine();
+                        body = body + (tmp + "\n");
+                        tmp = reader.ReadLine();
                     }
                 }
 
-                segBuf.put(head, body);
+                segBuf.Add(head, body);
                 body = "";
             }
 
-            String[][] out = new String[segBuf.size() + 1][2];
+            string[][] ret = new string[segBuf.Count + 1][];
+            for (int i = 0; i < ret.Length; i++)
+                ret[i] = new string[2];
 
-        out[0] [0] = "_pub_" + Integer.toHexString(Integer.signum(var.hashCode()) * var.hashCode());
-        out[0] [1] = "";
-        for (String i : pub) {
-            out[0] [1] = out[0] [1].concat(i + "\n");
-    }
+            ret[0][0] = "_pub_" + int.Parse(var.GetHashCode().ToString(), NumberStyles.HexNumber);
+            ret[0][1] = "";
+            foreach (string i in pub)
+            {
+                ret[0][1] = ret[0][1] + (i + "\n");
+            }
 
-        for (int i = 0; i<segBuf.keySet().size(); i++) {
-            out[i + 1] [0] = (String) segBuf.keySet().toArray()[i];
-            out[i + 1] [1] = segBuf.get(out[i + 1] [0]);
+            string[] segKeys = new string[segBuf.Keys.Count];
+            segBuf.Keys.CopyTo(segKeys, 0);
+            for (int i = 0; i < segKeys.Length; i++)
+            {
+                ret[i + 1][0] = segKeys[i];
+                ret[i + 1][1] = segBuf[ret[i + 1][0]];
+            }
+
+            return ret;
         }
 
-        return out;
-    }
-
-    public static String getSegment(String var, String head)
-{
-    String[][] segments = getSegments(var);
-    String result = "";
-    for (String[] i : segments)
-    {
-        if (i[0].equals(head))
+        public static string GetSegment(string var, string head)
         {
-            if (result.isEmpty())
-                result = i[1];
-            else
+            string[][] segments = GetSegments(var);
+            string result = "";
+            foreach (string[] i in segments)
+            {
+                if (i[0].Equals(head))
+                {
+                    if (result.Length == 0)
+                        result = i[1];
+                    else
+                        return null;
+                }
+            }
+            return result;
+        }
+
+        public static string Read(string path)
+        {
+            StringReader reader;
+            try
+            {
+                reader = new StringReader(FileInput.Invoke(path));
+            }
+            catch (Exception e)
+            {
+                Print("File open failed.\n");
+                Print("At file: " + path + "\n\n");
                 return null;
+            }
+
+            string str = "";
+            try
+            {
+                while (reader.Peek() != -1)
+                    str = str + (reader.ReadLine() + "\n");
+            }
+            catch (Exception e)
+            {
+                Print("File read error.\n");
+                Print("At file: " + path + "\n\n");
+                return null;
+            }
+            return str;
         }
 
-    }
-    return result;
-}
-
-public static String read(String path)
-{
-    BufferedReader reader;
-    try
-    {
-        reader = new BufferedReader(new FileReader(path));
-    }
-    catch (Exception e)
-    {
-        print("File open failed.\n");
-        print("At file: " + path + "\n\n");
-        return null;
-    }
-
-    String str = "";
-    try
-    {
-        while (reader.ready())
-            str = str.concat(reader.readLine() + "\n");
-    }
-    catch (Exception e)
-    {
-        print("File read error.\n");
-        print("At file: " + path + "\n\n");
-        return null;
-    }
-    return str;
-}
-
-public static void run(String path)
-{
-    String str = read(path);
-    if (str == null) return;
-
-    int heap = 64, stack = 32, regs = 16;
-
-    String conf = getSegment(str, ".<conf>");
-    if (conf == null)
-    {
-        print("Conf load error.\n");
-        print("At file: " + path + "\n\n");
-        return;
-    }
-    if (!conf.isEmpty())
-    {
-        Scanner confReader = new Scanner(conf);
-        try
+        public static void Run(string path)
         {
-            String buf;
-            while (confReader.hasNextLine())
+            string str = Read(path);
+            if (str == null) return;
+
+            int heap = 64, stack = 32, regs = 16;
+
+            string conf = GetSegment(str, ".<conf>");
+            if (conf == null)
             {
-                buf = confReader.nextLine();
-                switch (buf.split(" ")[0])
+                Print("Conf load error.\n");
+                Print("At file: " + path + "\n\n");
+                return;
+            }
+            if (conf.Length > 0)
+            {
+                StringReader confReader = new StringReader(conf);
+                try
                 {
-                    case "heap":
-                        heap = Integer.valueOf(buf.split(" ")[1]);
-                        break;
-                    case "stack":
-                        stack = Integer.valueOf(buf.split(" ")[1]);
-                        break;
-                    case "reg":
-                        regs = Integer.valueOf(buf.split(" ")[1]);
-                        break;
+                    string buf;
+                    while (confReader.Peek() != -1)
+                    {
+                        buf = confReader.ReadLine();
+                        switch (buf.Split(' ')[0])
+                        {
+                            case "heap":
+                                heap = int.Parse(buf.Split(' ')[1]);
+                                break;
+                            case "stack":
+                                stack = int.Parse(buf.Split(' ')[1]);
+                                break;
+                            case "reg":
+                                regs = int.Parse(buf.Split(' ')[1]);
+                                break;
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Print("Conf load error.\n");
+                    Print("At file: " + path + "\n\n");
+                    return;
                 }
             }
+
+            string[][] code = GetSegments(str);
+            NSASM nsasm = new NSASM(heap, stack, regs, code);
+            nsasm.Run();
+            Print("\nNSASM running finished.\n\n");
         }
-        catch (Exception e)
+
+        public static void Execute(string str)
         {
-            print("Conf load error.\n");
-            print("At file: " + path + "\n\n");
-            return;
-        }
-    }
+            string path = "local";
+            if (str == null) return;
 
-    String[][] code = getSegments(str);
-    NSASM nsasm = new NSASM(heap, stack, regs, code);
-    nsasm.run();
-    print("\nNSASM running finished.\n\n");
-}
+            int heap = 64, stack = 32, regs = 16;
 
-public static void execute(String str)
-{
-    String path = "local";
-    if (str == null) return;
-
-    int heap = 64, stack = 32, regs = 16;
-
-    String conf = getSegment(str, ".<conf>");
-    if (conf == null)
-    {
-        print("Conf load error.\n");
-        print("At file: " + path + "\n\n");
-        return;
-    }
-    if (!conf.isEmpty())
-    {
-        Scanner confReader = new Scanner(conf);
-        try
-        {
-            String buf;
-            while (confReader.hasNextLine())
+            string conf = GetSegment(str, ".<conf>");
+            if (conf == null)
             {
-                buf = confReader.nextLine();
-                switch (buf.split(" ")[0])
+                Print("Conf load error.\n");
+                Print("At file: " + path + "\n\n");
+                return;
+            }
+            if (conf.Length > 0)
+            {
+                StringReader confReader = new StringReader(conf);
+                try
                 {
-                    case "heap":
-                        heap = Integer.valueOf(buf.split(" ")[1]);
-                        break;
-                    case "stack":
-                        stack = Integer.valueOf(buf.split(" ")[1]);
-                        break;
-                    case "reg":
-                        regs = Integer.valueOf(buf.split(" ")[1]);
-                        break;
+                    string buf;
+                    while (confReader.Peek() != -1)
+                    {
+                        buf = confReader.ReadLine();
+                        switch (buf.Split(' ')[0])
+                        {
+                            case "heap":
+                                heap = int.Parse(buf.Split(' ')[1]);
+                                break;
+                            case "stack":
+                                stack = int.Parse(buf.Split(' ')[1]);
+                                break;
+                            case "reg":
+                                regs = int.Parse(buf.Split(' ')[1]);
+                                break;
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Print("Conf load error.\n");
+                    Print("At file: " + path + "\n\n");
+                    return;
                 }
             }
+
+            string[][] code = GetSegments(str);
+            NSASM nsasm = new NSASM(heap, stack, regs, code);
+            nsasm.Run();
+            Print("\nNSASM running finished.\n\n");
         }
-        catch (Exception e)
+
+        public static void Interactive()
         {
-            print("Conf load error.\n");
-            print("At file: " + path + "\n\n");
-            return;
+            Print("Now in console mode.\n\n");
+            string buf;
+            int lines = 1; NSASM.Result result;
+
+            NSASM nsasm = new NSASM(64, 32, 16, null);
+
+            while (true)
+            {
+                Print(lines + " >>> ");
+                buf = Scan();
+                if (buf.Length == 0)
+                {
+                    lines += 1;
+                    continue;
+                }
+                buf = formatCode(buf);
+
+                if (buf.Contains("#"))
+                {
+                    Print("<" + buf + ">\n");
+                    continue;
+                }
+                result = nsasm.Execute(buf);
+                if (result == NSASM.Result.ERR)
+                {
+                    Print("\nNSASM running error!\n");
+                    Print("At line " + lines + ": " + buf + "\n\n");
+                }
+                else if (result == NSASM.Result.ETC)
+                {
+                    break;
+                }
+                lines += 1;
+            }
         }
-    }
 
-    String[][] code = getSegments(str);
-    NSASM nsasm = new NSASM(heap, stack, regs, code);
-    nsasm.run();
-    print("\nNSASM running finished.\n\n");
-}
-
-public static void console()
-{
-    Util.print("Now in console mode.\n\n");
-    String buf;
-    int lines = 1; Result result;
-
-    NSASM nsasm = new NSASM(64, 32, 16, null);
-    Scanner scanner = new Scanner(System.in);
-
-    while (true)
-    {
-        Util.print(lines + " >>> ");
-        buf = scanner.nextLine();
-        if (buf.length() == 0)
-        {
-            lines += 1;
-            continue;
-        }
-        buf = formatCode(buf);
-
-        if (buf.Contains("#"))
-        {
-            Util.print("<" + buf + ">\n");
-            continue;
-        }
-        result = nsasm.execute(buf);
-        if (result == Result.ERR)
-        {
-            Util.print("\nNSASM running error!\n");
-            Util.print("At line " + lines + ": " + buf + "\n\n");
-        }
-        else if (result == Result.ETC)
-        {
-            break;
-        }
-        lines += 1;
-    }
-}
-
-public static void gui()
-{
-    new Editor().show();
-}
     }
 }

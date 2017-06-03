@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string version = "0.20 (Java)";
+        public const string Version = "0.20 (.NET Standard 1.1)";
 
         protected enum RegType
         {
@@ -21,10 +21,10 @@ namespace dotNSASM
             public int strPtr = 0;
             public bool readOnly;
 
-            public override string Tostring()
+            public override string ToString()
             {
-                return "Type: " + type.Tostring() + "\n" +
-                       "Data: " + data.Tostring() + "\n" +
+                return "Type: " + type.ToString() + "\n" +
+                       "Data: " + data.ToString() + "\n" +
                        "ReadOnly: " + readOnly;
             }
 
@@ -156,7 +156,7 @@ namespace dotNSASM
                     string tmp, rep;
                     try
                     {
-                        if (var.Split('\"').Length > 2)
+                        if (var.Split('\"').Length > 2 && var.Contains("*"))
                         {
                             tmp = rep = var.Split('\"')[1];
                             Register repeat = GetRegister(var.Split('\"')[2].Replace("*", ""));
@@ -257,7 +257,7 @@ namespace dotNSASM
                         op.Equals("char") || op.Equals("float") ||
                         op.Equals("str")
                     )
-                { 
+                {
                     //Variable define
                     dst = var.Substring(op.Length + 1).Split('=')[0];
                     if (var.Length <= op.Length + 1 + dst.Length) return Result.ERR;
@@ -269,7 +269,7 @@ namespace dotNSASM
                     sr = GetRegister(src);
                 }
                 else
-                { 
+                {
                     //Normal code
                     if (
                         VerifyWord(var.Substring(op.Length + 1), WordType.STR) ||
@@ -414,7 +414,7 @@ namespace dotNSASM
             }
 
             funList = new Dictionary<string, Operator>();
-            loadFunList();
+            LoadFunList();
 
             this.code = new Dictionary<string, string[]>();
             if (AppendCode(code) == Result.ERR)
@@ -424,197 +424,207 @@ namespace dotNSASM
             }
         }
 
-        private Object convValue(Object value, RegType type)
+        private Object ConvValue(Object value, RegType type)
         {
             switch (type)
             {
-                case INT:
-                    return Integer.valueOf(value.tostring());
-                case CHAR:
-                    return (value.tostring())[0);
-                case FLOAT:
-                    return Float.valueOf(value.tostring());
+                case RegType.INT:
+                    return int.Parse(value.ToString());
+                case RegType.CHAR:
+                    return (value.ToString())[0];
+                case RegType.FLOAT:
+                    return float.Parse(value.ToString());
             }
             return value;
         }
 
-        private Result calcInt(Register dst, Register src, char type)
+        private Result CalcInt(Register dst, Register src, char type)
         {
             switch (type)
             {
-                case '+': dst.data = (int)convValue(dst.data, RegType.INT) + (int)convValue(src.data, RegType.INT); break;
-                case '-': dst.data = (int)convValue(dst.data, RegType.INT) - (int)convValue(src.data, RegType.INT); break;
-                case '*': dst.data = (int)convValue(dst.data, RegType.INT) * (int)convValue(src.data, RegType.INT); break;
-                case '/': dst.data = (int)convValue(dst.data, RegType.INT) / (int)convValue(src.data, RegType.INT); break;
-                case '&': dst.data = (int)convValue(dst.data, RegType.INT) & (int)convValue(src.data, RegType.INT); break;
-                case '|': dst.data = (int)convValue(dst.data, RegType.INT) | (int)convValue(src.data, RegType.INT); break;
-                case '~': dst.data = ~(int)convValue(dst.data, RegType.INT); break;
-                case '^': dst.data = (int)convValue(dst.data, RegType.INT) ^ (int)convValue(src.data, RegType.INT); break;
-                case '<': dst.data = (int)convValue(dst.data, RegType.INT) << (int)convValue(src.data, RegType.INT); break;
-                case '>': dst.data = (int)convValue(dst.data, RegType.INT) >> (int)convValue(src.data, RegType.INT); break;
+                case '+': dst.data = (int)ConvValue(dst.data, RegType.INT) + (int)ConvValue(src.data, RegType.INT); break;
+                case '-': dst.data = (int)ConvValue(dst.data, RegType.INT) - (int)ConvValue(src.data, RegType.INT); break;
+                case '*': dst.data = (int)ConvValue(dst.data, RegType.INT) * (int)ConvValue(src.data, RegType.INT); break;
+                case '/': dst.data = (int)ConvValue(dst.data, RegType.INT) / (int)ConvValue(src.data, RegType.INT); break;
+                case '&': dst.data = (int)ConvValue(dst.data, RegType.INT) & (int)ConvValue(src.data, RegType.INT); break;
+                case '|': dst.data = (int)ConvValue(dst.data, RegType.INT) | (int)ConvValue(src.data, RegType.INT); break;
+                case '~': dst.data = ~(int)ConvValue(dst.data, RegType.INT); break;
+                case '^': dst.data = (int)ConvValue(dst.data, RegType.INT) ^ (int)ConvValue(src.data, RegType.INT); break;
+                case '<': dst.data = (int)ConvValue(dst.data, RegType.INT) << (int)ConvValue(src.data, RegType.INT); break;
+                case '>': dst.data = (int)ConvValue(dst.data, RegType.INT) >> (int)ConvValue(src.data, RegType.INT); break;
                 default: return Result.ERR;
             }
             return Result.OK;
         }
 
-        private Result calcChar(Register dst, Register src, char type)
+        private Result CalcChar(Register dst, Register src, char type)
         {
             switch (type)
             {
-                case '+': dst.data = (char)convValue(dst.data, RegType.CHAR) + (char)convValue(src.data, RegType.CHAR); break;
-                case '-': dst.data = (char)convValue(dst.data, RegType.CHAR) - (char)convValue(src.data, RegType.CHAR); break;
-                case '*': dst.data = (char)convValue(dst.data, RegType.CHAR) * (char)convValue(src.data, RegType.CHAR); break;
-                case '/': dst.data = (char)convValue(dst.data, RegType.CHAR) / (char)convValue(src.data, RegType.CHAR); break;
-                case '&': dst.data = (char)convValue(dst.data, RegType.CHAR) & (char)convValue(src.data, RegType.CHAR); break;
-                case '|': dst.data = (char)convValue(dst.data, RegType.CHAR) | (char)convValue(src.data, RegType.CHAR); break;
-                case '~': dst.data = ~(char)convValue(dst.data, RegType.CHAR); break;
-                case '^': dst.data = (char)convValue(dst.data, RegType.CHAR) ^ (char)convValue(src.data, RegType.CHAR); break;
-                case '<': dst.data = (char)convValue(dst.data, RegType.CHAR) << (char)convValue(src.data, RegType.CHAR); break;
-                case '>': dst.data = (char)convValue(dst.data, RegType.CHAR) >> (char)convValue(src.data, RegType.CHAR); break;
+                case '+': dst.data = (char)ConvValue(dst.data, RegType.CHAR) + (char)ConvValue(src.data, RegType.CHAR); break;
+                case '-': dst.data = (char)ConvValue(dst.data, RegType.CHAR) - (char)ConvValue(src.data, RegType.CHAR); break;
+                case '*': dst.data = (char)ConvValue(dst.data, RegType.CHAR) * (char)ConvValue(src.data, RegType.CHAR); break;
+                case '/': dst.data = (char)ConvValue(dst.data, RegType.CHAR) / (char)ConvValue(src.data, RegType.CHAR); break;
+                case '&': dst.data = (char)ConvValue(dst.data, RegType.CHAR) & (char)ConvValue(src.data, RegType.CHAR); break;
+                case '|': dst.data = (char)ConvValue(dst.data, RegType.CHAR) | (char)ConvValue(src.data, RegType.CHAR); break;
+                case '~': dst.data = ~(char)ConvValue(dst.data, RegType.CHAR); break;
+                case '^': dst.data = (char)ConvValue(dst.data, RegType.CHAR) ^ (char)ConvValue(src.data, RegType.CHAR); break;
+                case '<': dst.data = (char)ConvValue(dst.data, RegType.CHAR) << (char)ConvValue(src.data, RegType.CHAR); break;
+                case '>': dst.data = (char)ConvValue(dst.data, RegType.CHAR) >> (char)ConvValue(src.data, RegType.CHAR); break;
                 default: return Result.ERR;
             }
             return Result.OK;
         }
 
-        private Result calcFloat(Register dst, Register src, char type)
+        private Result CalcFloat(Register dst, Register src, char type)
         {
             switch (type)
             {
-                case '+': dst.data = (float)convValue(dst.data, RegType.FLOAT) + (float)convValue(src.data, RegType.FLOAT); break;
-                case '-': dst.data = (float)convValue(dst.data, RegType.FLOAT) - (float)convValue(src.data, RegType.FLOAT); break;
-                case '*': dst.data = (float)convValue(dst.data, RegType.FLOAT) * (float)convValue(src.data, RegType.FLOAT); break;
-                case '/': dst.data = (float)convValue(dst.data, RegType.FLOAT) / (float)convValue(src.data, RegType.FLOAT); break;
+                case '+': dst.data = (float)ConvValue(dst.data, RegType.FLOAT) + (float)ConvValue(src.data, RegType.FLOAT); break;
+                case '-': dst.data = (float)ConvValue(dst.data, RegType.FLOAT) - (float)ConvValue(src.data, RegType.FLOAT); break;
+                case '*': dst.data = (float)ConvValue(dst.data, RegType.FLOAT) * (float)ConvValue(src.data, RegType.FLOAT); break;
+                case '/': dst.data = (float)ConvValue(dst.data, RegType.FLOAT) / (float)ConvValue(src.data, RegType.FLOAT); break;
                 default: return Result.ERR;
             }
             return Result.OK;
         }
 
-        private Result calcStr(Register dst, Register src, char type)
+        private Result CalcStr(Register dst, Register src, char type)
         {
             switch (type)
             {
-                case '+': dst.strPtr = dst.strPtr + (int)convValue(src.data, RegType.INT); break;
-                case '-': dst.strPtr = dst.strPtr - (int)convValue(src.data, RegType.INT); break;
+                case '+': dst.strPtr = dst.strPtr + (int)ConvValue(src.data, RegType.INT); break;
+                case '-': dst.strPtr = dst.strPtr - (int)ConvValue(src.data, RegType.INT); break;
                 default: return Result.ERR;
             }
             return Result.OK;
         }
 
-        private Result calc(Register dst, Register src, char type)
+        private Result Calc(Register dst, Register src, char type)
         {
             switch (dst.type)
             {
-                case INT:
-                    return calcInt(dst, src, type);
-                case CHAR:
-                    return calcChar(dst, src, type);
-                case FLOAT:
-                    return calcFloat(dst, src, type);
-                case STR:
-                    return calcStr(dst, src, type);
+                case RegType.INT:
+                    return CalcInt(dst, src, type);
+                case RegType.CHAR:
+                    return CalcChar(dst, src, type);
+                case RegType.FLOAT:
+                    return CalcFloat(dst, src, type);
+                case RegType.STR:
+                    return CalcStr(dst, src, type);
             }
             return Result.OK;
         }
 
-        protected void loadFunList()
+        protected void LoadFunList()
         {
-            funList.put("rem", (dst, src)-> {
+            funList.Add("rem", (dst, src) =>
+            {
                 return Result.OK;
             });
 
-            funList.put("var", (dst, src)-> {
+            funList.Add("var", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
                 if (src.type != RegType.STR) src.readOnly = false;
-                heapManager.put((string)dst.data, src);
+                heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
 
-            funList.put("int", (dst, src)-> {
+            funList.Add("int", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
                 if (src.type != RegType.STR) src.readOnly = false;
                 if (src.type != RegType.INT) return Result.ERR;
-                heapManager.put((string)dst.data, src);
+                heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
 
-            funList.put("char", (dst, src)-> {
+            funList.Add("char", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
                 if (src.type != RegType.STR) src.readOnly = false;
                 if (src.type != RegType.CHAR) return Result.ERR;
-                heapManager.put((string)dst.data, src);
+                heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
 
-            funList.put("float", (dst, src)-> {
+            funList.Add("float", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
                 if (src.type != RegType.STR) src.readOnly = false;
                 if (src.type != RegType.FLOAT) return Result.ERR;
-                heapManager.put((string)dst.data, src);
+                heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
 
-            funList.put("str", (dst, src)-> {
+            funList.Add("str", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
                 if (src.type != RegType.STR) src.readOnly = false;
                 if (src.type != RegType.STR) return Result.ERR;
-                heapManager.put((string)dst.data, src);
+                heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
 
-            funList.put("mov", (dst, src)-> {
+            funList.Add("mov", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
                 if (dst.type == RegType.CHAR && src.type == RegType.STR)
                 {
-                    dst.data = ((string)src.data)[src.strPtr);
+                    dst.data = ((string)src.data)[src.strPtr];
                 }
                 else if (dst.type == RegType.STR && src.type == RegType.CHAR)
                 {
-                    char[] array = ((string)dst.data).toCharArray();
+                    char[] array = ((string)dst.data).ToCharArray();
                     array[dst.strPtr] = (char)src.data;
                     dst.data = new string(array);
                 }
                 else
                 {
-                    dst.copy(src);
+                    dst.Copy(src);
                     if (dst.readOnly) dst.readOnly = false;
                 }
                 return Result.OK;
             });
 
-            funList.put("push", (dst, src)-> {
+            funList.Add("push", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
-                if (stackManager.size() >= stackSize) return Result.ERR;
-                stackManager.push(dst);
+                if (stackManager.Count >= stackSize) return Result.ERR;
+                stackManager.Push(dst);
                 return Result.OK;
             });
 
-            funList.put("pop", (dst, src)-> {
+            funList.Add("pop", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                dst.copy(stackManager.pop());
+                dst.Copy(stackManager.Pop());
                 return Result.OK;
             });
 
-            funList.put("in", (dst, src)-> {
+            funList.Add("in", (dst, src) =>
+            {
                 if (src == null)
                 {
                     src = new Register();
@@ -631,23 +641,23 @@ namespace dotNSASM
                         buf = Util.Scan();
                         switch (dst.type)
                         {
-                            case INT:
+                            case RegType.INT:
                                 reg = GetRegister(buf);
                                 if (reg == null) return Result.OK;
                                 if (reg.type != RegType.INT) return Result.OK;
                                 dst.data = reg.data;
                                 break;
-                            case CHAR:
+                            case RegType.CHAR:
                                 if (buf.Length < 1) return Result.OK;
-                                dst.data = buf[0);
+                                dst.data = buf[0];
                                 break;
-                            case FLOAT:
+                            case RegType.FLOAT:
                                 reg = GetRegister(buf);
                                 if (reg == null) return Result.OK;
                                 if (reg.type != RegType.FLOAT) return Result.OK;
                                 dst.data = reg.data;
                                 break;
-                            case STR:
+                            case RegType.STR:
                                 if (buf.Length < 1) return Result.OK;
                                 dst.data = buf;
                                 dst.strPtr = 0;
@@ -660,23 +670,23 @@ namespace dotNSASM
                         buf = Util.Scan();
                         switch (dst.type)
                         {
-                            case INT:
+                            case RegType.INT:
                                 reg = GetRegister(buf);
                                 if (reg == null) return Result.OK;
                                 if (reg.type != RegType.INT) return Result.OK;
                                 dst.data = reg.data;
                                 break;
-                            case CHAR:
+                            case RegType.CHAR:
                                 if (buf.Length < 1) return Result.OK;
-                                dst.data = buf[0);
+                                dst.data = buf[0];
                                 break;
-                            case FLOAT:
+                            case RegType.FLOAT:
                                 reg = GetRegister(buf);
                                 if (reg == null) return Result.OK;
                                 if (reg.type != RegType.FLOAT) return Result.OK;
                                 dst.data = reg.data;
                                 break;
-                            case STR:
+                            case RegType.STR:
                                 if (buf.Length < 1) return Result.OK;
                                 dst.data = buf;
                                 dst.strPtr = 0;
@@ -689,7 +699,8 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funList.put("out", (dst, src)-> {
+            funList.Add("out", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 switch ((int)dst.data)
@@ -699,7 +710,7 @@ namespace dotNSASM
                         {
                             Util.Print(((string)src.data).Substring(src.strPtr));
                         }
-                        else Util.print(src.data);
+                        else Util.Print(src.data);
                         break;
                     case 0xFF:
                         Util.Print("[DEBUG] >>> ");
@@ -707,7 +718,7 @@ namespace dotNSASM
                         {
                             Util.Print(((string)src.data).Substring(src.strPtr));
                         }
-                        else Util.print(src.data);
+                        else Util.Print(src.data);
                         break;
                     default:
                         return Result.ERR;
@@ -715,25 +726,28 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funList.put("prt", (dst, src)-> {
+            funList.Add("prt", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.type == RegType.STR)
                 {
-                    Util.print(((string)dst.data).Substring(dst.strPtr) + '\n');
+                    Util.Print(((string)dst.data).Substring(dst.strPtr) + '\n');
                 }
-                else Util.print(dst.data.tostring() + '\n');
+                else Util.Print(dst.data.ToString() + '\n');
                 return Result.OK;
             });
 
-            funList.put("add", (dst, src)-> {
+            funList.Add("add", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, src, '+');
+                return Calc(dst, src, '+');
             });
 
-            funList.put("inc", (dst, src)-> {
+            funList.Add("inc", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -741,17 +755,19 @@ namespace dotNSASM
                 register.readOnly = false;
                 register.type = RegType.CHAR;
                 register.data = 1;
-                return calc(dst, register, '+');
+                return Calc(dst, register, '+');
             });
 
-            funList.put("sub", (dst, src)-> {
+            funList.Add("sub", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, src, '-');
+                return Calc(dst, src, '-');
             });
 
-            funList.put("dec", (dst, src)-> {
+            funList.Add("dec", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -759,76 +775,86 @@ namespace dotNSASM
                 register.readOnly = false;
                 register.type = RegType.CHAR;
                 register.data = 1;
-                return calc(dst, register, '-');
+                return Calc(dst, register, '-');
             });
 
-            funList.put("mul", (dst, src)-> {
+            funList.Add("mul", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, src, '*');
+                return Calc(dst, src, '*');
             });
 
-            funList.put("div", (dst, src)-> {
+            funList.Add("div", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, src, '/');
+                return Calc(dst, src, '/');
             });
 
-            funList.put("and", (dst, src)-> {
+            funList.Add("and", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, src, '&');
+                return Calc(dst, src, '&');
             });
 
-            funList.put("or", (dst, src)-> {
+            funList.Add("or", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, src, '|');
+                return Calc(dst, src, '|');
             });
 
-            funList.put("xor", (dst, src)-> {
+            funList.Add("xor", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, src, '^');
+                return Calc(dst, src, '^');
             });
 
-            funList.put("not", (dst, src)-> {
+            funList.Add("not", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, null, '~');
+                return Calc(dst, null, '~');
             });
 
-            funList.put("shl", (dst, src)-> {
+            funList.Add("shl", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, src, '<');
+                return Calc(dst, src, '<');
             });
 
-            funList.put("shr", (dst, src)-> {
+            funList.Add("shr", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return calc(dst, src, '>');
+                return Calc(dst, src, '>');
             });
 
-            funList.put("cmp", (dst, src)-> {
+            funList.Add("cmp", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
-                if (funList.get("mov").run(stateReg, dst) == Result.ERR)
+                if (funList["mov"].Invoke(stateReg, dst) == Result.ERR)
                     return Result.ERR;
-                if (funList.get("sub").run(stateReg, src) == Result.ERR)
+                if (funList["sub"].Invoke(stateReg, src) == Result.ERR)
                     return Result.ERR;
                 return Result.OK;
             });
 
-            funList.put("jmp", (dst, src)-> {
+            funList.Add("jmp", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.type != RegType.STR) return Result.ERR;
@@ -836,14 +862,17 @@ namespace dotNSASM
                 string tag = (string)dst.data;
                 string segBuf, lineBuf;
 
-                for (int seg = 0; seg < code.keySet().size(); seg++)
+                string[] codeKeys = new string[code.Keys.Count];
+                code.Keys.CopyTo(codeKeys, 0);
+
+                for (int seg = 0; seg < codeKeys.Length; seg++)
                 {
-                    segBuf = (string)(code.keySet().toArray())[seg];
-                    if (code.get(segBuf) == null) continue;
-                    for (int line = 0; line < code.get(segBuf).Length; line++)
+                    segBuf = codeKeys[seg];
+                    if (code[segBuf] == null) continue;
+                    for (int line = 0; line < code[segBuf].Length; line++)
                     {
-                        lineBuf = code.get(segBuf)[line];
-                        if (tag.equals(lineBuf))
+                        lineBuf = code[segBuf][line];
+                        if (tag.Equals(lineBuf))
                         {
                             tmpSeg = seg;
                             tmpCnt = line;
@@ -855,51 +884,58 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funList.put("jz", (dst, src)-> {
-                if ((float)convValue(stateReg.data, RegType.FLOAT) == 0)
+            funList.Add("jz", (dst, src) =>
+            {
+                if ((float)ConvValue(stateReg.data, RegType.FLOAT) == 0)
                 {
-                    return funList.get("jmp").run(dst, src);
+                    return funList["jmp"].Invoke(dst, src);
                 }
                 return Result.OK;
             });
 
-            funList.put("jnz", (dst, src)-> {
-                if ((float)convValue(stateReg.data, RegType.FLOAT) != 0)
+            funList.Add("jnz", (dst, src) =>
+            {
+                if ((float)ConvValue(stateReg.data, RegType.FLOAT) != 0)
                 {
-                    return funList.get("jmp").run(dst, src);
+                    return funList["jmp"].Invoke(dst, src);
                 }
                 return Result.OK;
             });
 
-            funList.put("jg", (dst, src)-> {
-                if ((float)convValue(stateReg.data, RegType.FLOAT) > 0)
+            funList.Add("jg", (dst, src) =>
+            {
+                if ((float)ConvValue(stateReg.data, RegType.FLOAT) > 0)
                 {
-                    return funList.get("jmp").run(dst, src);
+                    return funList["jmp"].Invoke(dst, src);
                 }
                 return Result.OK;
             });
 
-            funList.put("jl", (dst, src)-> {
-                if ((float)convValue(stateReg.data, RegType.FLOAT) < 0)
+            funList.Add("jl", (dst, src) =>
+            {
+                if ((float)ConvValue(stateReg.data, RegType.FLOAT) < 0)
                 {
-                    return funList.get("jmp").run(dst, src);
+                    return funList["jmp"].Invoke(dst, src);
                 }
                 return Result.OK;
             });
 
-            funList.put("end", (dst, src)-> {
+            funList.Add("end", (dst, src) =>
+            {
                 if (dst == null && src == null)
                     return Result.ETC;
                 return Result.ERR;
             });
 
-            funList.put("nop", (dst, src)-> {
+            funList.Add("nop", (dst, src) =>
+            {
                 if (dst == null && src == null)
                     return Result.OK;
                 return Result.ERR;
             });
 
-            funList.put("rst", (dst, src)-> {
+            funList.Add("rst", (dst, src) =>
+            {
                 if (dst == null && src == null)
                 {
                     tmpSeg = 0;
@@ -909,14 +945,17 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funList.put("run", (dst, src)-> {
+            funList.Add("run", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 string segBuf, target = (string)dst.data;
-                for (int seg = 0; seg < code.keySet().size(); seg++)
+                string[] codeKeys = new string[code.Keys.Count];
+                code.Keys.CopyTo(codeKeys, 0);
+                for (int seg = 0; seg < codeKeys.Length; seg++)
                 {
-                    segBuf = (string)(code.keySet().toArray())[seg];
-                    if (target.equals(segBuf))
+                    segBuf = codeKeys[seg];
+                    if (target.Equals(segBuf))
                     {
                         tmpSeg = seg;
                         tmpCnt = 0;
@@ -926,33 +965,37 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funList.put("call", (dst, src)-> {
+            funList.Add("call", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 string segBuf, target = (string)dst.data;
-                for (int seg = 0; seg < code.keySet().size(); seg++)
+                string[] codeKeys = new string[code.Keys.Count];
+                code.Keys.CopyTo(codeKeys, 0);
+                for (int seg = 0; seg < codeKeys.Length; seg++)
                 {
-                    segBuf = (string)(code.keySet().toArray())[seg];
-                    if (target.equals(segBuf))
+                    segBuf = codeKeys[seg];
+                    if (target.Equals(segBuf))
                     {
                         tmpSeg = seg;
                         tmpCnt = 0;
-                        backupReg.push(progSeg);
-                        backupReg.push(progCnt);
+                        backupReg.Push(progSeg);
+                        backupReg.Push(progCnt);
                         return Result.OK;
                     }
                 }
                 return Result.OK;
             });
 
-            funList.put("ld", (dst, src)-> {
+            funList.Add("ld", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.type != RegType.STR) return Result.ERR;
                 string path = (string)dst.data;
-                string code = Util.read(path);
+                string code = Util.Read(path);
                 if (code == null) return Result.ERR;
-                string[][] segs = Util.getSegments(code);
+                string[][] segs = Util.GetSegments(code);
                 if (AppendCode(segs) == Result.ERR)
                 {
                     Util.Print("At file: " + path + "\n");
