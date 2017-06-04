@@ -148,7 +148,7 @@ namespace dotNSASM
             for (int i = 0; i < ret.Length; i++)
                 ret[i] = new string[2];
 
-            ret[0][0] = "_pub_" + int.Parse(var.GetHashCode().ToString(), NumberStyles.HexNumber);
+            ret[0][0] = "_pub_" + var.GetHashCode().ToString("x");
             ret[0][1] = "";
             foreach (string i in pub)
             {
