@@ -1,0 +1,14 @@
+﻿<test1> {
+	prt "this is test1"
+	call <test2>
+	run <test3>
+}
+
+<test2> {
+	prt "this is test2"
+}
+
+<test3> {
+	prt "this is test3"
+	call <test2>
+}

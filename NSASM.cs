@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.20 (.NET Standard 1.1)";
+        public const string Version = "0.21 (.NET Standard 1.1)";
 
         protected enum RegType
         {
@@ -516,7 +516,7 @@ namespace dotNSASM
             return Result.OK;
         }
 
-        protected void LoadFunList()
+        protected virtual void LoadFunList()
         {
             funList.Add("rem", (dst, src) =>
             {

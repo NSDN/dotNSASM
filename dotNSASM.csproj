@@ -7,6 +7,12 @@
     <Description>NyaSama Assembly Script Module in .NET</Description>
     <Copyright>Copyright © NSDN 2014 - 2017</Copyright>
     <SignAssembly>False</SignAssembly>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageLicenseUrl>https://github.com/NSDN/NSASM</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/NSDN/dotNSASM</PackageProjectUrl>
+    <PackageIconUrl>http://nya.ac.cn:32/file/nsdn.png</PackageIconUrl>
+    <PackageReleaseNotes>ver0.21 (.NET Standard 1.1)</PackageReleaseNotes>
+    <Version>0.2.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
