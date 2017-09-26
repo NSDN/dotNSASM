@@ -54,7 +54,7 @@ namespace dotNSASM
             return tmp;
         }
 
-        public static string formatCode(string var)
+        public static string FormatCode(string var)
         {
             if (var.Length == 0) return "";
             while (var.Contains("\r"))
@@ -111,7 +111,7 @@ namespace dotNSASM
 
             while (reader.Peek() != -1)
             {
-                varBuf = varBuf + formatCode(reader.ReadLine()) + "\n";
+                varBuf = varBuf + FormatCode(reader.ReadLine()) + "\n";
             }
             while (varBuf.Contains("\n\n"))
             {
@@ -320,7 +320,8 @@ namespace dotNSASM
             string buf;
             int lines = 1; NSASM.Result result;
 
-            NSASM nsasm = new NSASM(64, 32, 16, null);
+            string[][] code = GetSegments("nop\n"); //ld func allowed
+            NSASM nsasm = new NSASM(64, 32, 16, code);
 
             while (true)
             {
@@ -331,13 +332,14 @@ namespace dotNSASM
                     lines += 1;
                     continue;
                 }
-                buf = formatCode(buf);
+                buf = FormatCode(buf);
 
                 if (buf.Contains("#"))
                 {
                     Print("<" + buf + ">\n");
                     continue;
                 }
+
                 result = nsasm.Execute(buf);
                 if (result == NSASM.Result.ERR)
                 {
@@ -348,6 +350,11 @@ namespace dotNSASM
                 {
                     break;
                 }
+                if (buf.StartsWith("run") || buf.StartsWith("call"))
+                {
+                    nsasm.Run();
+                }
+
                 lines += 1;
             }
         }

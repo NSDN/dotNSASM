@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.21 (.NET Standard 1.1)";
+        public const string Version = "0.30 (.NET Standard 1.1)";
 
         protected enum RegType
         {
@@ -60,7 +60,7 @@ namespace dotNSASM
         private enum WordType
         {
             REG, CHAR, STR, INT,
-            FLOAT, VAR, TAG
+            FLOAT, VAR, TAG, SEG
         }
 
         private bool VerifyBound(string var, char left, char right)
@@ -100,9 +100,12 @@ namespace dotNSASM
                 case WordType.VAR:
                     return !VerifyWord(var, WordType.REG) && !VerifyWord(var, WordType.CHAR) &&
                            !VerifyWord(var, WordType.STR) && !VerifyWord(var, WordType.INT) &&
-                           !VerifyWord(var, WordType.FLOAT) && !VerifyWord(var, WordType.TAG);
+                           !VerifyWord(var, WordType.FLOAT) && !VerifyWord(var, WordType.TAG) &&
+                           !VerifyWord(var, WordType.SEG);
                 case WordType.TAG:
-                    return VerifyBound(var, '[', ']') || VerifyBound(var, '<', '>');
+                    return VerifyBound(var, '[', ']');
+                case WordType.SEG:
+                    return VerifyBound(var, '<', '>');
             }
             return false;
         }
@@ -232,7 +235,7 @@ namespace dotNSASM
                     register.readOnly = true;
                     register.data = tmp;
                 }
-                else if (VerifyWord(var, WordType.TAG))
+                else if (VerifyWord(var, WordType.TAG) || VerifyWord(var, WordType.SEG))
                 {
                     register.type = RegType.STR;
                     register.readOnly = true;
@@ -378,13 +381,28 @@ namespace dotNSASM
             foreach (string[] seg in code)
             {
                 if (seg[0].StartsWith(".")) continue; //This is conf seg
-                if (this.code.ContainsKey(seg[0]))
+                if (seg[0].StartsWith("@")) //This is override seg
                 {
-                    Util.Print("\nNSASM loading error!\n");
-                    Util.Print("At " + seg[0] + "\n");
-                    return Result.ERR;
+                    if (!this.code.ContainsKey(seg[0].Substring(1)))
+                    {
+                        Util.Print("\nNSASM loading error!\n");
+                        Util.Print("At " + seg[0].Substring(1) + "\n");
+                        return Result.ERR;
+                    }
+                    this.code.Remove(seg[0].Substring(1));
+                    this.code.Add(seg[0].Substring(1), ConvToArray(seg[1]));
                 }
-                this.code.Add(seg[0], ConvToArray(seg[1]));
+                else
+                {
+                    if (this.code.ContainsKey(seg[0]))
+                    {
+                        if (seg[0].StartsWith("_pub_")) continue; //This is pub seg
+                        Util.Print("\nNSASM loading error!\n");
+                        Util.Print("At " + seg[0] + "\n");
+                        return Result.ERR;
+                    }
+                    this.code.Add(seg[0], ConvToArray(seg[1]));
+                }
             }
             return Result.OK;
         }
@@ -949,6 +967,8 @@ namespace dotNSASM
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
+                if (dst.type != RegType.STR) return Result.ERR;
+                if (!VerifyWord((string)dst.data, WordType.SEG)) return Result.ERR;
                 string segBuf, target = (string)dst.data;
                 string[] codeKeys = new string[code.Keys.Count];
                 code.Keys.CopyTo(codeKeys, 0);
@@ -969,6 +989,8 @@ namespace dotNSASM
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
+                if (dst.type != RegType.STR) return Result.ERR;
+                if (!VerifyWord((string)dst.data, WordType.SEG)) return Result.ERR;
                 string segBuf, target = (string)dst.data;
                 string[] codeKeys = new string[code.Keys.Count];
                 code.Keys.CopyTo(codeKeys, 0);
