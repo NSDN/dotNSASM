@@ -103,6 +103,17 @@ namespace dotNSASM
             return left + right;
         }
 
+        public static String RepairBrackets(String var, String left, String right)
+        {
+            while (var.Contains('\n' + left))
+                var = var.Replace('\n' + left, left);
+            var = var.Replace(left, left + '\n');
+            var = var.Replace(right, '\n' + right);
+            while (var.Contains("\n\n"))
+                var = var.Replace("\n\n", "\n");
+            return var;
+        }
+
         public static string[][] GetSegments(string var)
         {
             Dictionary<string, string> segBuf = new Dictionary<string, string>();
@@ -117,6 +128,9 @@ namespace dotNSASM
             {
                 varBuf = varBuf.Replace("\n\n", "\n");
             }
+            varBuf = RepairBrackets(varBuf, "{", "}");
+            varBuf = RepairBrackets(varBuf, "(", ")");
+
             reader = new StringReader(varBuf);
 
             string head, body = "", tmp;
