@@ -54,7 +54,7 @@ namespace dotNSASM
             return tmp;
         }
 
-        public static string FormatCode(string var)
+        public static string FormatLine(string var)
         {
             if (var.Length == 0) return "";
             while (var.Contains("\r"))
@@ -99,8 +99,25 @@ namespace dotNSASM
             left = CleanSymbol(left, "=", " ");
             left = CleanSymbol(left, "{", "\t", " ");
             left = CleanSymbol(left, "}", "\t", " ");
+            left = CleanSymbol(left, "(", "\t", " ");
+            left = CleanSymbol(left, ")", "\t", " ");
 
             return left + right;
+        }
+
+        public static String FormatCode(String var)
+        {
+            String varBuf = ""; StringReader reader = new StringReader(var);
+            while (reader.Peek() != -1)
+            {
+                varBuf = varBuf + FormatLine(reader.ReadLine()) + "\n";
+            }
+            while (varBuf.Contains("\n\n"))
+            {
+                varBuf = varBuf.Replace("\n\n", "\n");
+            }
+            reader.Dispose();
+            return varBuf;
         }
 
         public static String RepairBrackets(String var, String left, String right)
@@ -111,27 +128,90 @@ namespace dotNSASM
             var = var.Replace(right, '\n' + right);
             while (var.Contains("\n\n"))
                 var = var.Replace("\n\n", "\n");
+            while (var.Contains(left + " "))
+                var = var.Replace(left + " ", left);
+            while (var.Contains(" \n" + right))
+                var = var.Replace(" \n" + right, "\n" + right);
+            return var;
+        }
+
+        public static String EncodeLambda(String var)
+        {
+            return var.Replace("\n", "\f");
+        }
+
+        public static String DecodeLambda(String var)
+        {
+            return var.Replace("\f", "\n");
+        }
+
+        public static String FormatString(String var)
+        {
+            return var.Replace("\\\"", "\"").Replace("\\\'", "\'")
+                    .Replace("\\\\", "\\").Replace("\\n", "\n")
+                    .Replace("\\t", "\t");
+        }
+
+        public static String FormatLambda(String var)
+        {
+            const int IDLE = 0, RUN = 1, DONE = 2;
+            int state = IDLE, count = 0, begin = 0, end = 0;
+
+            for (int i = 0; i < var.Length; i++)
+            {
+                switch (state)
+                {
+                    case IDLE:
+                        count = begin = end = 0;
+                        if (var[i] == '(')
+                        {
+                            begin = i;
+                            count += 1;
+                            state = RUN;
+                        }
+                        break;
+                    case RUN:
+                        if (var[i] == '(')
+                            count += 1;
+                        else if (var[i] == ')')
+                            count -= 1;
+                        if (count == 0)
+                        {
+                            end = i;
+                            state = DONE;
+                        }
+                        break;
+                    case DONE:
+                        String a, b, c;
+                        a = var.Substring(0, begin);
+                        b = var.Substring(begin, end - begin + 1);
+                        c = var.Substring(end + 1);
+                        b = EncodeLambda(b);
+                        var = a + b + c;
+                        state = IDLE;
+                        break;
+                    default:
+                        return var;
+                }
+            }
+
             return var;
         }
 
         public static string[][] GetSegments(string var)
         {
             Dictionary<string, string> segBuf = new Dictionary<string, string>();
-            string varBuf = ""; StringReader reader = new StringReader(var);
             LinkedList<string> pub = new LinkedList<string>();
+            string varBuf = var;
 
-            while (reader.Peek() != -1)
-            {
-                varBuf = varBuf + FormatCode(reader.ReadLine()) + "\n";
-            }
-            while (varBuf.Contains("\n\n"))
-            {
-                varBuf = varBuf.Replace("\n\n", "\n");
-            }
+            varBuf = FormatCode(varBuf);
             varBuf = RepairBrackets(varBuf, "{", "}");
             varBuf = RepairBrackets(varBuf, "(", ")");
+            varBuf = FormatCode(varBuf);
 
-            reader = new StringReader(varBuf);
+            varBuf = FormatLambda(varBuf);
+
+            StringReader reader = new StringReader(varBuf);
 
             string head, body = "", tmp;
             while (reader.Peek() != -1)
@@ -216,6 +296,7 @@ namespace dotNSASM
             {
                 while (reader.Peek() != -1)
                     str = str + (reader.ReadLine() + "\n");
+                reader.Dispose();
             }
             catch (Exception e)
             {
@@ -346,14 +427,13 @@ namespace dotNSASM
                     lines += 1;
                     continue;
                 }
-                buf = FormatCode(buf);
+                buf = FormatLine(buf);
 
                 if (buf.Contains("#"))
                 {
                     Print("<" + buf + ">\n");
                     continue;
                 }
-
                 result = nsasm.Execute(buf);
                 if (result == NSASM.Result.ERR)
                 {

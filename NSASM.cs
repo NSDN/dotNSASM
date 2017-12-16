@@ -7,14 +7,14 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.30 (.NET Standard 1.1)";
+        public const string Version = "0.40 (.NET Standard 1.1)";
 
-        protected enum RegType
+        public enum RegType
         {
-            CHAR, STR, INT, FLOAT
+            CHAR, STR, INT, FLOAT, CODE
         }
 
-        protected class Register
+        public class Register
         {
             public RegType type;
             public Object data;
@@ -37,19 +37,20 @@ namespace dotNSASM
             }
         }
 
-        protected delegate Result Operator(Register dst, Register src);
+        public delegate Result Operator(Register dst, Register src);
 
         private Dictionary<string, Register> heapManager;
         private Stack<Register> stackManager;
-        private int stackSize;
+        private int heapSize, stackSize;
         protected Register[] regGroup;
         private Register stateReg;
+        private Register prevDstReg;
 
         private Stack<int> backupReg;
         private int progSeg, tmpSeg;
         private int progCnt, tmpCnt;
 
-        protected Dictionary<string, Operator> funList;
+        protected Dictionary<string, Operator> funcList;
         private Dictionary<string, string[]> code;
 
         public enum Result
@@ -60,7 +61,8 @@ namespace dotNSASM
         private enum WordType
         {
             REG, CHAR, STR, INT,
-            FLOAT, VAR, TAG, SEG
+            FLOAT, VAR, TAG, SEG,
+            CODE
         }
 
         private bool VerifyBound(string var, char left, char right)
@@ -97,15 +99,17 @@ namespace dotNSASM
                         (var[0] >= '0' && var[0] <= '9') ||
                         var[0] == '-' || var[0] == '+'
                     ) && (!var.StartsWith("0x") || !var.StartsWith("0X"));
-                case WordType.VAR:
-                    return !VerifyWord(var, WordType.REG) && !VerifyWord(var, WordType.CHAR) &&
-                           !VerifyWord(var, WordType.STR) && !VerifyWord(var, WordType.INT) &&
-                           !VerifyWord(var, WordType.FLOAT) && !VerifyWord(var, WordType.TAG) &&
-                           !VerifyWord(var, WordType.SEG);
                 case WordType.TAG:
                     return VerifyBound(var, '[', ']');
                 case WordType.SEG:
                     return VerifyBound(var, '<', '>');
+                case WordType.CODE:
+                    return VerifyBound(var, '(', ')');
+                case WordType.VAR:
+                    return !VerifyWord(var, WordType.REG) && !VerifyWord(var, WordType.CHAR) &&
+                           !VerifyWord(var, WordType.STR) && !VerifyWord(var, WordType.INT) &&
+                           !VerifyWord(var, WordType.FLOAT) && !VerifyWord(var, WordType.TAG) &&
+                           !VerifyWord(var, WordType.SEG) && !VerifyWord(var, WordType.CODE);
             }
             return false;
         }
@@ -139,6 +143,8 @@ namespace dotNSASM
                         if (var.Length < 4) return null;
                         switch (var[2])
                         {
+                            case '0': tmp = '\0'; break;
+                            case 'b': tmp = '\b'; break;
                             case 'n': tmp = '\n'; break;
                             case 'r': tmp = '\r'; break;
                             case 't': tmp = '\t'; break;
@@ -159,10 +165,10 @@ namespace dotNSASM
                     string tmp, rep;
                     try
                     {
-                        if (var.Split('\"').Length > 2 && var.Contains("*"))
+                        if (var.Contains("*"))
                         {
-                            tmp = rep = var.Split('\"')[1];
-                            Register repeat = GetRegister(var.Split('\"')[2].Replace("*", ""));
+                            tmp = rep = var.Split(new string[]{ "\"*" }, StringSplitOptions.RemoveEmptyEntries)[0].Substring(1);
+                            Register repeat = GetRegister(var.Split(new string[] { "\"*" }, StringSplitOptions.RemoveEmptyEntries)[1]);
                             if (repeat == null) return null;
                             if (repeat.type != RegType.INT) return null;
                             for (int i = 1; i < (int)repeat.data; i++)
@@ -170,13 +176,16 @@ namespace dotNSASM
                         }
                         else
                         {
-                            tmp = var.Split('\"')[1];
+                            tmp = var.Substring(1, var.Length - 2);
                         }
                     }
                     catch (Exception e)
                     {
                         return null;
                     }
+
+                    tmp = Util.FormatString(tmp);
+
                     register.type = RegType.STR;
                     register.readOnly = true;
                     register.data = tmp;
@@ -241,6 +250,14 @@ namespace dotNSASM
                     register.readOnly = true;
                     register.data = var;
                 }
+                else if (VerifyWord(var, WordType.CODE))
+                {
+                    register.type = RegType.CODE;
+                    register.readOnly = true;
+                    String code = var.Substring(1, var.Length - 2);
+                    code = Util.DecodeLambda(code);
+                    register.data = code;
+                }
                 else return null;
                 return register;
             }
@@ -258,7 +275,7 @@ namespace dotNSASM
                 if (
                         op.Equals("var") || op.Equals("int") ||
                         op.Equals("char") || op.Equals("float") ||
-                        op.Equals("str")
+                        op.Equals("str") || op.Equals("code")
                     )
                 {
                     //Variable define
@@ -296,24 +313,26 @@ namespace dotNSASM
                 }
             }
 
-            if (!funList.ContainsKey(op))
+            if (!funcList.ContainsKey(op))
                 return VerifyWord(op, WordType.TAG) ? Result.OK : Result.ERR;
 
-            return funList[op].Invoke(dr, sr);
+            prevDstReg = dr != null ? dr : prevDstReg;
+            return funcList[op].Invoke(dr, sr);
         }
 
-        public void Run()
+        public Register Run()
         {
-            if (code == null) return;
+            if (code == null) return null;
             Result result; string segBuf, codeBuf;
 
             progSeg = progCnt = 0;
 
-            string[] codeKeys = new string[code.Keys.Count];
-            code.Keys.CopyTo(codeKeys, 0);
+          
 
-            for (; progSeg < codeKeys.Length; progSeg++)
+            for (; progSeg < code.Keys.Count; progSeg++)
             {
+                string[] codeKeys = new string[code.Keys.Count];
+                code.Keys.CopyTo(codeKeys, 0);
                 segBuf = codeKeys[progSeg];
                 if (code[segBuf] == null) continue;
 
@@ -339,11 +358,12 @@ namespace dotNSASM
                     {
                         Util.Print("\nNSASM running error!\n");
                         Util.Print("At " + segBuf + ", line " + (progCnt + 1) + ": " + codeBuf + "\n\n");
-                        return;
+                        return null;
                     }
                     else if (result == Result.ETC)
                     {
-                        return;
+                        prevDstReg.readOnly = false;
+                        return prevDstReg;
                     }
                 }
 
@@ -354,6 +374,17 @@ namespace dotNSASM
                 }
                 else progCnt = 0;
             }
+
+            prevDstReg.readOnly = false;
+            return prevDstReg;
+        }
+
+        protected Register Eval(Register register)
+        {
+            if (register == null) return null;
+            if (register.type != RegType.CODE) return null;
+            String[][] code = Util.GetSegments(register.data.ToString());
+            return new NSASM(this, code).Run();
         }
 
         private string[] ConvToArray(string var)
@@ -407,10 +438,22 @@ namespace dotNSASM
             return Result.OK;
         }
 
+        private void CopyRegGroup(NSASM super)
+        {
+            for (int i = 0; i < super.regGroup.Length; i++)
+                this.regGroup[i].Copy(super.regGroup[i]);
+        }
+
+        private NSASM(NSASM super, String[][] code) : this(super.heapSize, super.stackSize, super.regGroup.Length, code)
+        {
+            CopyRegGroup(super);
+        }
+
         public NSASM(int heapSize, int stackSize, int regCnt, string[][] code)
         {
             heapManager = new Dictionary<string, Register>(heapSize);
             stackManager = new Stack<Register>();
+            this.heapSize = heapSize;
             this.stackSize = stackSize;
 
             stateReg = new Register();
@@ -426,13 +469,13 @@ namespace dotNSASM
             for (int i = 0; i < regGroup.Length; i++)
             {
                 regGroup[i] = new Register();
-                regGroup[i].type = RegType.CHAR;
+                regGroup[i].type = RegType.INT;
                 regGroup[i].readOnly = false;
                 regGroup[i].data = 0;
             }
 
-            funList = new Dictionary<string, Operator>();
-            LoadFunList();
+            funcList = new Dictionary<string, Operator>();
+            LoadFuncList();
 
             this.code = new Dictionary<string, string[]>();
             if (AppendCode(code) == Result.ERR)
@@ -515,6 +558,8 @@ namespace dotNSASM
                 case '-': dst.strPtr = dst.strPtr - (int)ConvValue(src.data, RegType.INT); break;
                 default: return Result.ERR;
             }
+            if (dst.strPtr >= dst.data.ToString().Length) dst.strPtr = dst.data.ToString().Length - 1;
+            if (dst.strPtr < 0) dst.strPtr = 0;
             return Result.OK;
         }
 
@@ -534,14 +579,14 @@ namespace dotNSASM
             return Result.OK;
         }
 
-        protected virtual void LoadFunList()
+        protected void LoadFuncList()
         {
-            funList.Add("rem", (dst, src) =>
+            funcList.Add("rem", (dst, src) =>
             {
                 return Result.OK;
             });
 
-            funList.Add("var", (dst, src) =>
+            funcList.Add("var", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -552,55 +597,66 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funList.Add("int", (dst, src) =>
+            funcList.Add("int", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
-                if (src.type != RegType.STR) src.readOnly = false;
                 if (src.type != RegType.INT) return Result.ERR;
                 heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
 
-            funList.Add("char", (dst, src) =>
+            funcList.Add("char", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
-                if (src.type != RegType.STR) src.readOnly = false;
                 if (src.type != RegType.CHAR) return Result.ERR;
                 heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
 
-            funList.Add("float", (dst, src) =>
+            funcList.Add("float", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
-                if (src.type != RegType.STR) src.readOnly = false;
                 if (src.type != RegType.FLOAT) return Result.ERR;
                 heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
 
-            funList.Add("str", (dst, src) =>
+            funcList.Add("str", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
-                if (src.type != RegType.STR) src.readOnly = false;
                 if (src.type != RegType.STR) return Result.ERR;
+
+                src.readOnly = true;
                 heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
 
-            funList.Add("mov", (dst, src) =>
+            funcList.Add("code", (dst, src) =>
+            {
+                if (src == null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
+                if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
+                if (src.type != RegType.CODE) return Result.ERR;
+
+                src.readOnly = false;
+                heapManager.Add((string)dst.data, src);
+                return Result.OK;
+            });
+
+            funcList.Add("mov", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -623,7 +679,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funList.Add("push", (dst, src) =>
+            funcList.Add("push", (dst, src) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -632,7 +688,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funList.Add("pop", (dst, src) =>
+            funcList.Add("pop", (dst, src) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -641,7 +697,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funList.Add("in", (dst, src) =>
+            funcList.Add("in", (dst, src) =>
             {
                 if (src == null)
                 {
@@ -717,54 +773,154 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funList.Add("out", (dst, src) =>
+            funcList.Add("out", (dst, src) =>
             {
-                if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
-                switch ((int)dst.data)
+                if (src == null)
                 {
-                    case 0x00:
-                        if (src.type == RegType.STR)
-                        {
-                            Util.Print(((string)src.data).Substring(src.strPtr));
-                        }
-                        else Util.Print(src.data);
-                        break;
-                    case 0xFF:
-                        Util.Print("[DEBUG] >>> ");
-                        if (src.type == RegType.STR)
-                        {
-                            Util.Print(((string)src.data).Substring(src.strPtr));
-                        }
-                        else Util.Print(src.data);
-                        break;
-                    default:
+                    if (dst.type == RegType.STR)
+                    {
+                        Util.Print(((String)dst.data).Substring(dst.strPtr));
+                    }
+                    else if (dst.type == RegType.CODE)
+                    {
+                        Register register = Eval(dst);
+                        if (register == null) return Result.ERR;
+                        Util.Print(register.data);
+                    }
+                    else Util.Print(dst.data);
+                }
+                else
+                {
+                    if (dst.type != RegType.INT)
                         return Result.ERR;
+                    switch ((int)dst.data)
+                    {
+                        case 0x00:
+                            if (src.type == RegType.STR)
+                            {
+                                Util.Print(((String)src.data).Substring(src.strPtr));
+                            }
+                            else if (src.type == RegType.CODE)
+                            {
+                                Register register = Eval(src);
+                                if (register == null) return Result.ERR;
+                                Util.Print(register.data);
+                            }
+                            else Util.Print(src.data);
+                            break;
+                        case 0xFF:
+                            Util.Print("[DEBUG] >>> ");
+                            if (src.type == RegType.STR)
+                            {
+                                Util.Print(((String)src.data).Substring(src.strPtr));
+                            }
+                            else if (src.type == RegType.CODE)
+                            {
+                                Register register = Eval(src);
+                                if (register == null) return Result.ERR;
+                                Util.Print(register.data);
+                            }
+                            else Util.Print(src.data);
+                            Util.Print('\n');
+                            break;
+                        default:
+                            return Result.ERR;
+                    }
                 }
                 return Result.OK;
             });
 
-            funList.Add("prt", (dst, src) =>
+            funcList.Add("prt", (dst, src) =>
             {
-                if (src != null) return Result.ERR;
-                if (dst == null) return Result.ERR;
-                if (dst.type == RegType.STR)
+                if (src != null)
                 {
-                    Util.Print(((string)dst.data).Substring(dst.strPtr) + '\n');
+                    if (dst.type == RegType.STR)
+                    {
+                        if (dst.readOnly) return Result.ERR;
+                        if (src.type == RegType.CHAR && src.data.Equals('\b'))
+                        {
+                            if (dst.data.ToString().Contains("\n"))
+                            {
+                                String[] parts = dst.data.ToString().Split('\n');
+                                String res = "";
+                                for (int i = 0; i < parts.Length - 1; i++)
+                                {
+                                    res = res + parts[i];
+                                    if (i < parts.Length - 2) res = res + "\n";
+                                }
+                            }
+                        }
+                        else if (src.type == RegType.CODE)
+                        {
+                            Register register = Eval(src);
+                            if (register == null) return Result.ERR;
+                            dst.data = dst.data.ToString() + '\n' + register.data.ToString();
+                        }
+                        else if (src.type == RegType.STR)
+                        {
+                            dst.data = dst.data.ToString() + '\n' + src.data.ToString();
+                        }
+                        else return Result.ERR;
+                    }
+                    else if (dst.type == RegType.CODE)
+                    {
+                        if (dst.readOnly) return Result.ERR;
+                        if (src.type == RegType.CHAR && src.data.Equals('\b'))
+                        {
+                            if (dst.data.ToString().Contains("\n"))
+                            {
+                                String[] parts = dst.data.ToString().Split('\n');
+                                String res = "";
+                                for (int i = 0; i < parts.Length - 1; i++)
+                                {
+                                    res = res + parts[i];
+                                    if (i < parts.Length - 2) res = res + "\n";
+                                }
+                            }
+                        }
+                        else if (src.type == RegType.CODE)
+                        {
+                            dst.data = dst.data.ToString() + '\n' + src.data.ToString();
+                        }
+                        else if (src.type == RegType.STR)
+                        {
+                            dst.data = dst.data.ToString() + '\n' + src.data.ToString();
+                        }
+                        else return Result.ERR;
+                    }
+                    else return Result.ERR;
                 }
-                else Util.Print(dst.data.ToString() + '\n');
+                else
+                {
+                    if (dst == null) return Result.ERR;
+                    if (dst.type == RegType.STR)
+                    {
+                        Util.Print(((String)dst.data).Substring(dst.strPtr) + '\n');
+                    }
+                    else if (dst.type == RegType.CODE)
+                    {
+                        Register register = Eval(dst);
+                        if (register == null) return Result.ERR;
+                        Util.Print(register.data.ToString() + '\n');
+                    }
+                    else Util.Print(dst.data.ToString() + '\n');
+                }
                 return Result.OK;
             });
 
-            funList.Add("add", (dst, src) =>
+            funcList.Add("add", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return Calc(dst, src, '+');
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '+');
+                else
+                    return Calc(dst, src, '+');
             });
 
-            funList.Add("inc", (dst, src) =>
+            funcList.Add("inc", (dst, src) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -776,15 +932,18 @@ namespace dotNSASM
                 return Calc(dst, register, '+');
             });
 
-            funList.Add("sub", (dst, src) =>
+            funcList.Add("sub", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return Calc(dst, src, '-');
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '-');
+                else
+                    return Calc(dst, src, '-');
             });
 
-            funList.Add("dec", (dst, src) =>
+            funcList.Add("dec", (dst, src) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -796,47 +955,62 @@ namespace dotNSASM
                 return Calc(dst, register, '-');
             });
 
-            funList.Add("mul", (dst, src) =>
+            funcList.Add("mul", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return Calc(dst, src, '*');
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '*');
+                else
+                    return Calc(dst, src, '*');
             });
 
-            funList.Add("div", (dst, src) =>
+            funcList.Add("div", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return Calc(dst, src, '/');
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '/');
+                else
+                    return Calc(dst, src, '/');
             });
 
-            funList.Add("and", (dst, src) =>
+            funcList.Add("and", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return Calc(dst, src, '&');
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '&');
+                else
+                    return Calc(dst, src, '&');
             });
 
-            funList.Add("or", (dst, src) =>
+            funcList.Add("or", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return Calc(dst, src, '|');
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '|');
+                else
+                    return Calc(dst, src, '|');
             });
 
-            funList.Add("xor", (dst, src) =>
+            funcList.Add("xor", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return Calc(dst, src, '^');
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '^');
+                else
+                    return Calc(dst, src, '^');
             });
 
-            funList.Add("not", (dst, src) =>
+            funcList.Add("not", (dst, src) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -844,34 +1018,70 @@ namespace dotNSASM
                 return Calc(dst, null, '~');
             });
 
-            funList.Add("shl", (dst, src) =>
+            funcList.Add("shl", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return Calc(dst, src, '<');
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '<');
+                else
+                    return Calc(dst, src, '<');
             });
 
-            funList.Add("shr", (dst, src) =>
+            funcList.Add("shr", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
-                return Calc(dst, src, '>');
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '>');
+                else
+                    return Calc(dst, src, '>');
             });
 
-            funList.Add("cmp", (dst, src) =>
+            funcList.Add("cmp", (dst, src) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
-                if (funList["mov"].Invoke(stateReg, dst) == Result.ERR)
+                if (funcList["mov"].Invoke(stateReg, dst) == Result.ERR)
                     return Result.ERR;
-                if (funList["sub"].Invoke(stateReg, src) == Result.ERR)
+                if (src.type == RegType.CODE)
+                {
+                    if (funcList["sub"].Invoke(stateReg, Eval(src)) == Result.ERR)
+                        return Result.ERR;
+                }
+                else
+                {
+                    if (funcList["sub"].Invoke(stateReg, src) == Result.ERR)
+                        return Result.ERR;
+                }
+                return Result.OK;
+            });
+
+            funcList.Add("test", (dst, src) =>
+            {
+                if (src != null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (dst.type == RegType.CODE)
+                {
+                    if (funcList["mov"].Invoke(stateReg, Eval(dst)) == Result.ERR)
+                        return Result.ERR;
+                }
+                else
+                {
+                    if (funcList["mov"].Invoke(stateReg, dst) == Result.ERR)
+                        return Result.ERR;
+                }
+
+                Register reg = new Register();
+                reg.type = dst.type; reg.readOnly = false; reg.data = 0;
+                if (funcList["sub"].Invoke(stateReg, reg) == Result.ERR)
                     return Result.ERR;
                 return Result.OK;
             });
 
-            funList.Add("jmp", (dst, src) =>
+            funcList.Add("jmp", (dst, src) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -902,57 +1112,68 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funList.Add("jz", (dst, src) =>
+            funcList.Add("jz", (dst, src) =>
             {
                 if ((float)ConvValue(stateReg.data, RegType.FLOAT) == 0)
                 {
-                    return funList["jmp"].Invoke(dst, src);
+                    return funcList["jmp"].Invoke(dst, src);
                 }
                 return Result.OK;
             });
 
-            funList.Add("jnz", (dst, src) =>
+            funcList.Add("jnz", (dst, src) =>
             {
                 if ((float)ConvValue(stateReg.data, RegType.FLOAT) != 0)
                 {
-                    return funList["jmp"].Invoke(dst, src);
+                    return funcList["jmp"].Invoke(dst, src);
                 }
                 return Result.OK;
             });
 
-            funList.Add("jg", (dst, src) =>
+            funcList.Add("jg", (dst, src) =>
             {
                 if ((float)ConvValue(stateReg.data, RegType.FLOAT) > 0)
                 {
-                    return funList["jmp"].Invoke(dst, src);
+                    return funcList["jmp"].Invoke(dst, src);
                 }
                 return Result.OK;
             });
 
-            funList.Add("jl", (dst, src) =>
+            funcList.Add("jl", (dst, src) =>
             {
                 if ((float)ConvValue(stateReg.data, RegType.FLOAT) < 0)
                 {
-                    return funList["jmp"].Invoke(dst, src);
+                    return funcList["jmp"].Invoke(dst, src);
                 }
                 return Result.OK;
             });
 
-            funList.Add("end", (dst, src) =>
+            funcList.Add("end", (dst, src) =>
             {
                 if (dst == null && src == null)
                     return Result.ETC;
                 return Result.ERR;
             });
 
-            funList.Add("nop", (dst, src) =>
+            funcList.Add("ret", (dst, src) =>
+            {
+                if (src == null)
+                {
+                    if (dst != null) prevDstReg = dst;
+                    else prevDstReg = regGroup[0];
+                    return Result.ETC;
+                }
+                return Result.ERR;
+            });
+
+            funcList.Add("nop", (dst, src) =>
             {
                 if (dst == null && src == null)
                     return Result.OK;
                 return Result.ERR;
             });
 
-            funList.Add("rst", (dst, src) =>
+            funcList.Add("rst", (dst, src) =>
             {
                 if (dst == null && src == null)
                 {
@@ -963,12 +1184,12 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funList.Add("run", (dst, src) =>
+            funcList.Add("run", (dst, src) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.type != RegType.STR) return Result.ERR;
-                if (!VerifyWord((string)dst.data, WordType.SEG)) return Result.ERR;
+                if (!VerifyWord((String)dst.data, WordType.SEG)) return Result.ERR;
                 string segBuf, target = (string)dst.data;
                 string[] codeKeys = new string[code.Keys.Count];
                 code.Keys.CopyTo(codeKeys, 0);
@@ -985,12 +1206,12 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funList.Add("call", (dst, src) =>
+            funcList.Add("call", (dst, src) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.type != RegType.STR) return Result.ERR;
-                if (!VerifyWord((string)dst.data, WordType.SEG)) return Result.ERR;
+                if (!VerifyWord((String)dst.data, WordType.SEG)) return Result.ERR;
                 string segBuf, target = (string)dst.data;
                 string[] codeKeys = new string[code.Keys.Count];
                 code.Keys.CopyTo(codeKeys, 0);
@@ -1009,12 +1230,23 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funList.Add("ld", (dst, src) =>
+            funcList.Add("ld", (dst, src) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
-                if (dst.type != RegType.STR) return Result.ERR;
-                string path = (string)dst.data;
+                if (dst.type != RegType.STR && dst.type != RegType.CODE)
+                    return Result.ERR;
+
+                string path;
+                if (dst.type == RegType.CODE)
+                {
+                    Register res = Eval(dst);
+                    if (res == null) return Result.ERR;
+                    if (res.type != RegType.STR) return Result.ERR;
+                    path = res.data.ToString();
+                }
+                else path = dst.data.ToString();
+
                 string code = Util.Read(path);
                 if (code == null) return Result.ERR;
                 string[][] segs = Util.GetSegments(code);
@@ -1023,6 +1255,15 @@ namespace dotNSASM
                     Util.Print("At file: " + path + "\n");
                     return Result.ERR;
                 }
+                return Result.OK;
+            });
+
+            funcList.Add("eval", (dst, src) => {
+                if (dst == null) return Result.ERR;
+
+                if (src == null) Eval(dst);
+                else dst.Copy(Eval(src));
+
                 return Result.OK;
             });
         }
