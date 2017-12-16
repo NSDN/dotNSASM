@@ -12,13 +12,10 @@ namespace dotNSASM
             Util.Input = () => { return Console.ReadLine(); };
             Util.FileInput = (path) =>
             {
-                FileStream stream = new FileStream(path, FileMode.Open);
-                StreamReader reader = new StreamReader(stream);
-                string str = reader.ReadToEnd();
+                StreamReader reader = new StreamReader(new FileStream(path, FileMode.Open));
+                String var = reader.ReadToEnd();
                 reader.Close();
-                reader.Dispose();
-                stream.Dispose();
-                return str;
+                return var;
             };
 
             Util.Print("NyaSama Assembly Script Module\n");
