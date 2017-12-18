@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Diagnostics;
 
 namespace dotNSASM
 {
@@ -34,7 +35,13 @@ namespace dotNSASM
                 {
                     if (args[0].Equals("r"))
                     {
+                        Stopwatch stopwatch = new Stopwatch();
+                        stopwatch.Start();
                         Util.Run(args[1]);
+                        stopwatch.Stop();
+                        Console.WriteLine("This script took " +
+                            stopwatch.Elapsed.TotalMilliseconds
+                        + "ms.\n");
                         return;
                     }
                 }
