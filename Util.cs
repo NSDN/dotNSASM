@@ -102,6 +102,8 @@ namespace dotNSASM
             left = CleanSymbol(left, "(", "\t", " ");
             left = CleanSymbol(left, ")", "\t", " ");
 
+            left = CleanSymbol(left, "]", "\t", " ");
+
             return left + right;
         }
 
@@ -213,30 +215,73 @@ namespace dotNSASM
 
             StringReader reader = new StringReader(varBuf);
 
-            string head, body = "", tmp;
+            String head = "", body = "", tmp;
+            const int IDLE = 0, RUN = 1;
+            int state = IDLE, count = 0;
             while (reader.Peek() != -1)
             {
-                head = reader.ReadLine();
-                if (!head.Contains("{"))
+                switch (state)
                 {
-                    pub.AddLast(head);
-                    continue;
+                    case IDLE:
+                        head = reader.ReadLine();
+                        count = 0; body = "";
+                        if (head.Contains("{"))
+                        {
+                            head = head.Replace("{", "");
+                            count += 1;
+                            state = RUN;
+                        }
+                        else pub.AddLast(head);
+                        break;
+                    case RUN:
+                        if (reader.Peek() != -1)
+                        {
+                            tmp = reader.ReadLine();
+                            if (tmp.Contains("{"))
+                                count += 1;
+                            else if (tmp.Contains("}"))
+                                count -= 1;
+                            if (tmp.Contains("(") && tmp.Contains(")"))
+                            {
+                                count -= 1;
+                            }
+                            if (count == 0)
+                            {
+                                segBuf.Add(head, body);
+                                state = IDLE;
+                            }
+                            body = body + (tmp + "\n");
+                        }
+                        break;
+                    default:
+                        break;
                 }
-                head = head.Replace("{", "");
-
-                if (reader.Peek() != -1)
-                {
-                    tmp = reader.ReadLine();
-                    while (!tmp.Contains("}") && reader.Peek() != -1)
-                    {
-                        body = body + (tmp + "\n");
-                        tmp = reader.ReadLine();
-                    }
-                }
-
-                segBuf.Add(head, body);
-                body = "";
             }
+
+            //string head, body = "", tmp;
+            //while (reader.Peek() != -1)
+            //{
+            //    head = reader.ReadLine();
+            //    if (!head.Contains("{"))
+            //    {
+            //        pub.AddLast(head);
+            //        continue;
+            //    }
+            //    head = head.Replace("{", "");
+
+            //    if (reader.Peek() != -1)
+            //    {
+            //        tmp = reader.ReadLine();
+            //        while (!tmp.Contains("}") && reader.Peek() != -1)
+            //        {
+            //            body = body + (tmp + "\n");
+            //            tmp = reader.ReadLine();
+            //        }
+            //    }
+
+            //    segBuf.Add(head, body);
+            //    body = "";
+            //}
 
             string[][] ret = new string[segBuf.Count + 1][];
             for (int i = 0; i < ret.Length; i++)

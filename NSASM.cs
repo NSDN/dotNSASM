@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.40 (.NET Standard 1.1)";
+        public const string Version = "0.41 (.NET Standard 1.1)";
 
         public enum RegType
         {
@@ -327,8 +327,6 @@ namespace dotNSASM
 
             progSeg = progCnt = 0;
 
-          
-
             for (; progSeg < code.Keys.Count; progSeg++)
             {
                 string[] codeKeys = new string[code.Keys.Count];
@@ -377,6 +375,69 @@ namespace dotNSASM
 
             prevDstReg.readOnly = false;
             return prevDstReg;
+        }
+
+        public void Call(string segName)
+        {
+            Result result; string segBuf, codeBuf;
+            string[] codeKeys = new string[code.Keys.Count];
+
+            code.Keys.CopyTo(codeKeys, 0);
+            for (int seg = 0; seg < codeKeys.Length; seg++)
+            {
+                segBuf = codeKeys[seg];
+                if (segName.Equals(segBuf))
+                {
+                    tmpSeg = seg;
+                    tmpCnt = 0;
+                    break;
+                }
+            }
+
+            for (; progSeg < code.Keys.Count; progSeg++)
+            {
+                codeKeys = new string[code.Keys.Count];
+                code.Keys.CopyTo(codeKeys, 0);
+                segBuf = codeKeys[progSeg];
+                if (code[segBuf] == null) continue;
+
+                for (; progCnt < code[segBuf].Length; progCnt++)
+                {
+                    if (tmpSeg >= 0 || tmpCnt >= 0)
+                    {
+                        progSeg = tmpSeg; progCnt = tmpCnt;
+                        tmpSeg = -1; tmpCnt = -1;
+                    }
+
+                    segBuf = codeKeys[progSeg];
+                    if (code[segBuf] == null) break;
+                    codeBuf = code[segBuf][progCnt];
+
+                    if (codeBuf.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    result = Execute(codeBuf);
+                    if (result == Result.ERR)
+                    {
+                        Util.Print("\nNSASM running error!\n");
+                        Util.Print("At " + segBuf + ", line " + (progCnt + 1) + ": " + codeBuf + "\n\n");
+                        return;
+                    }
+                    else if (result == Result.ETC)
+                    {
+                        return;
+                    }
+                }
+
+                if (backupReg.Count > 0)
+                {
+                    progCnt = backupReg.Pop() + 1;
+                    progSeg = backupReg.Pop() - 1;
+                }
+                else progCnt = 0;
+            }
         }
 
         protected Register Eval(Register register)
