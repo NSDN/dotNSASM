@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.41 (.NET Standard 1.1)";
+        public const string Version = "0.42 (.NET Standard 1.1)";
 
         public enum RegType
         {
@@ -360,7 +360,7 @@ namespace dotNSASM
                     }
                     else if (result == Result.ETC)
                     {
-                        prevDstReg.readOnly = false;
+                        if (prevDstReg != null) prevDstReg.readOnly = false;
                         return prevDstReg;
                     }
                 }
@@ -373,7 +373,7 @@ namespace dotNSASM
                 else progCnt = 0;
             }
 
-            prevDstReg.readOnly = false;
+            if (prevDstReg != null) prevDstReg.readOnly = false;
             return prevDstReg;
         }
 
