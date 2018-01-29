@@ -67,6 +67,11 @@ namespace dotNSASM
                 var = var.Substring(1);
                 if (var.Length == 0) return "";
             }
+            while (var[var.Length - 1] == '\t' || var[var.Length - 1] == ' ')
+            {
+                var = var.Substring(0, var.Length - 1);
+                if (var.Length == 0) return "";
+            }
 
             string left, right;
             if (var.Contains("\'"))
