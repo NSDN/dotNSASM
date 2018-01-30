@@ -248,7 +248,8 @@ namespace dotNSASM
                                 count -= 1;
                             if (tmp.Contains("(") && tmp.Contains(")"))
                             {
-                                count -= 1;
+                                if (tmp.Contains("{") && tmp.Contains("}"))
+                                    count -= 1;
                             }
                             if (count == 0)
                             {

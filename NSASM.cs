@@ -768,6 +768,7 @@ namespace dotNSASM
                     src.readOnly = true;
                 }
                 if (dst == null) return Result.ERR;
+                if (src.type != RegType.INT) return Result.ERR;
                 string buf; Register reg;
                 switch ((int)src.data)
                 {
@@ -894,6 +895,7 @@ namespace dotNSASM
 
             funcList.Add("prt", (dst, src) =>
             {
+                if (dst == null) return Result.ERR;
                 if (src != null)
                 {
                     if (dst.type == RegType.STR)
