@@ -264,31 +264,6 @@ namespace dotNSASM
                 }
             }
 
-            //string head, body = "", tmp;
-            //while (reader.Peek() != -1)
-            //{
-            //    head = reader.ReadLine();
-            //    if (!head.Contains("{"))
-            //    {
-            //        pub.AddLast(head);
-            //        continue;
-            //    }
-            //    head = head.Replace("{", "");
-
-            //    if (reader.Peek() != -1)
-            //    {
-            //        tmp = reader.ReadLine();
-            //        while (!tmp.Contains("}") && reader.Peek() != -1)
-            //        {
-            //            body = body + (tmp + "\n");
-            //            tmp = reader.ReadLine();
-            //        }
-            //    }
-
-            //    segBuf.Add(head, body);
-            //    body = "";
-            //}
-
             string[][] ret = new string[segBuf.Count + 1][];
             for (int i = 0; i < ret.Length; i++)
                 ret[i] = new string[2];

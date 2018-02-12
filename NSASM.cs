@@ -7,11 +7,11 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.43 (.NET Standard 1.1)";
+        public const string Version = "0.45 (.NET Standard 1.1)";
 
         public enum RegType
         {
-            CHAR, STR, INT, FLOAT, CODE
+            CHAR, STR, INT, FLOAT, CODE, MAP
         }
 
         public class Register
@@ -23,9 +23,25 @@ namespace dotNSASM
 
             public override string ToString()
             {
-                return "Type: " + type.ToString() + "\n" +
-                       "Data: " + data.ToString() + "\n" +
-                       "ReadOnly: " + readOnly;
+                switch (type)
+                {
+                    case RegType.CODE:
+                        return "(\n" + data.ToString() + "\n)";
+                    default:
+                        return data.ToString();
+                }
+            }
+
+            public override bool Equals(object obj)
+            {
+                if (obj is Register)
+                    return data == ((Register)obj).data;
+                return false;
+            }
+
+            public override int GetHashCode()
+            {
+                return data.GetHashCode();
             }
 
             public void Copy(Register reg)
@@ -37,11 +53,29 @@ namespace dotNSASM
             }
         }
 
+        public class Map : Dictionary<Register, Register>
+        {
+            public Map() : base() {}
+
+            public override string ToString()
+            {
+                string str = "M(\n";
+                foreach (Register key in Keys)
+                {
+                    str += (key.ToString() + "->" + this[key].ToString() + "\n");
+                }
+                str += ")";
+
+                return str;
+            }
+        }
+
         public delegate Result Operator(Register dst, Register src);
 
         private Dictionary<string, Register> heapManager;
         private Stack<Register> stackManager;
-        private int heapSize, stackSize;
+        private int heapSize, stackSize, regCnt;
+        protected Register useReg;
         protected Register[] regGroup;
         private Register stateReg;
         private Register prevDstReg;
@@ -62,7 +96,7 @@ namespace dotNSASM
         {
             REG, CHAR, STR, INT,
             FLOAT, VAR, TAG, SEG,
-            CODE
+            CODE, MAP
         }
 
         private bool VerifyBound(string var, char left, char right)
@@ -105,11 +139,16 @@ namespace dotNSASM
                     return VerifyBound(var, '<', '>');
                 case WordType.CODE:
                     return VerifyBound(var, '(', ')');
+                case WordType.MAP:
+                    if (var[0] == 'm' || var[0] == 'M')
+                        return VerifyBound(var.Substring(1), '(', ')');
+                    else return false;
                 case WordType.VAR:
                     return !VerifyWord(var, WordType.REG) && !VerifyWord(var, WordType.CHAR) &&
                            !VerifyWord(var, WordType.STR) && !VerifyWord(var, WordType.INT) &&
                            !VerifyWord(var, WordType.FLOAT) && !VerifyWord(var, WordType.TAG) &&
-                           !VerifyWord(var, WordType.SEG) && !VerifyWord(var, WordType.CODE);
+                           !VerifyWord(var, WordType.SEG) && !VerifyWord(var, WordType.CODE) &&
+                           !VerifyWord(var, WordType.MAP);
             }
             return false;
         }
@@ -258,6 +297,22 @@ namespace dotNSASM
                     code = Util.DecodeLambda(code);
                     register.data = code;
                 }
+                else if (VerifyWord(var, WordType.MAP))
+                {
+                    String code = var.Substring(2, var.Length - 3);
+
+                    register = new Register();
+                    register.type = RegType.MAP;
+                    register.readOnly = true;
+                    register.data = new Map();
+                    code = Util.DecodeLambda(code);
+                    funcList["mov"].Invoke(regGroup[regCnt], register);
+
+                    Register reg = new Register();
+                    reg.type = RegType.CODE; reg.readOnly = true;
+                    reg.data = code + "\n" + "ret r" + regCnt + "\n";
+                    register = Eval(reg);
+                }
                 else return null;
                 return register;
             }
@@ -275,7 +330,8 @@ namespace dotNSASM
                 if (
                         op.Equals("var") || op.Equals("int") ||
                         op.Equals("char") || op.Equals("float") ||
-                        op.Equals("str") || op.Equals("code")
+                        op.Equals("str") || op.Equals("code") ||
+                        op.Equals("map")
                     )
                 {
                     //Variable define
@@ -505,7 +561,7 @@ namespace dotNSASM
                 this.regGroup[i].Copy(super.regGroup[i]);
         }
 
-        private NSASM(NSASM super, String[][] code) : this(super.heapSize, super.stackSize, super.regGroup.Length, code)
+        private NSASM(NSASM super, String[][] code) : this(super.heapSize, super.stackSize, super.regCnt, code)
         {
             CopyRegGroup(super);
         }
@@ -516,6 +572,7 @@ namespace dotNSASM
             stackManager = new Stack<Register>();
             this.heapSize = heapSize;
             this.stackSize = stackSize;
+            this.regCnt = regCnt;
 
             stateReg = new Register();
             stateReg.data = 0;
@@ -526,7 +583,7 @@ namespace dotNSASM
             progSeg = 0; progCnt = 0;
             tmpSeg = -1; tmpCnt = -1;
 
-            regGroup = new Register[regCnt];
+            regGroup = new Register[regCnt + 1];
             for (int i = 0; i < regGroup.Length; i++)
             {
                 regGroup[i] = new Register();
@@ -534,6 +591,7 @@ namespace dotNSASM
                 regGroup[i].readOnly = false;
                 regGroup[i].data = 0;
             }
+            useReg = regGroup[regCnt];
 
             funcList = new Dictionary<string, Operator>();
             LoadFuncList();
@@ -665,6 +723,8 @@ namespace dotNSASM
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
                 if (src.type != RegType.INT) return Result.ERR;
+
+                src.readOnly = false;
                 heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
@@ -676,6 +736,8 @@ namespace dotNSASM
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
                 if (src.type != RegType.CHAR) return Result.ERR;
+
+                src.readOnly = false;
                 heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
@@ -687,6 +749,8 @@ namespace dotNSASM
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
                 if (src.type != RegType.FLOAT) return Result.ERR;
+
+                src.readOnly = false;
                 heapManager.Add((string)dst.data, src);
                 return Result.OK;
             });
@@ -711,6 +775,19 @@ namespace dotNSASM
                 if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
                 if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
                 if (src.type != RegType.CODE) return Result.ERR;
+
+                src.readOnly = false;
+                heapManager.Add((string)dst.data, src);
+                return Result.OK;
+            });
+
+            funcList.Add("map", (dst, src) =>
+            {
+                if (src == null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (!VerifyWord((string)dst.data, WordType.VAR)) return Result.ERR;
+                if (heapManager.ContainsKey((string)dst.data)) return Result.ERR;
+                if (src.type != RegType.MAP) return Result.ERR;
 
                 src.readOnly = false;
                 heapManager.Add((string)dst.data, src);
@@ -1328,6 +1405,188 @@ namespace dotNSASM
                 else dst.Copy(Eval(src));
 
                 return Result.OK;
+            });
+
+            funcList.Add("use", (dst, src) => {
+                if (src != null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (dst.readOnly) return Result.ERR;
+                if (dst.type != RegType.MAP) return Result.ERR;
+                useReg = dst;
+                return Result.OK;
+            });
+
+            funcList.Add("put", (dst, src) => {
+                if (src == null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (useReg == null) return Result.ERR;
+                if (useReg.type != RegType.MAP) return Result.ERR;
+                if (dst.type == RegType.CODE)
+                {
+                    Register reg = Eval(dst);
+                    if (reg == null) return Result.ERR;
+                    if (!(reg.data is Map)) return Result.ERR;
+                    if (((Map)useReg.data).ContainsKey(reg))
+                        ((Map)useReg.data).Remove(reg);
+                    ((Map)useReg.data).Add(reg, src);
+                }
+                else
+                {
+                    if (((Map)useReg.data).ContainsKey(dst))
+                        ((Map)useReg.data).Remove(dst);
+                    ((Map)useReg.data).Add(dst, src);
+                }
+
+                return Result.OK;
+            });
+
+            funcList.Add("get", (dst, src) => {
+                if (src == null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (dst.readOnly) return Result.ERR;
+                if (useReg == null) return Result.ERR;
+                if (useReg.type != RegType.MAP) return Result.ERR;
+
+                if (src.type == RegType.CODE)
+                {
+                    Register reg = Eval(src);
+                    if (reg == null) return Result.ERR;
+                    if (!(reg.data is Map)) return Result.ERR;
+                    if (!((Map)useReg.data).ContainsKey(reg)) return Result.ERR;
+                    return funcList["mov"](dst, ((Map)useReg.data)[reg]);
+                }
+                else
+                {
+                    if (!((Map)useReg.data).ContainsKey(src)) return Result.ERR;
+                    return funcList["mov"](dst, ((Map)useReg.data)[src]);
+                }
+            });
+
+            funcList.Add("cat", (dst, src) => {
+                if (src == null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (dst.readOnly) return Result.ERR;
+                switch (dst.type)
+                {
+                    case RegType.STR:
+                        if (src.type != RegType.STR)
+                            return Result.ERR;
+                        dst.data = (string)dst.data + (string)src.data;
+                        break;
+                    case RegType.MAP:
+                        if (src.type != RegType.MAP)
+                            return Result.ERR;
+                        if (!(dst.data is Map)) return Result.ERR;
+                        if (!(src.data is Map)) return Result.ERR;
+                        foreach (var i in (Map)src.data)
+                        {
+                            if (((Map)dst.data).ContainsKey(i.Key))
+                                ((Map)dst.data).Remove(i.Key);
+                            ((Map)dst.data).Add(i.Key, i.Value);
+                        }
+                        break;
+                    default:
+                        return Result.ERR;
+                }
+                return Result.OK;
+            });
+
+            funcList.Add("dog", (dst, src) => {
+                if (src == null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (dst.readOnly) return Result.ERR;
+                switch (dst.type)
+                {
+                    case RegType.STR:
+                        if (src.type != RegType.STR)
+                            return Result.ERR;
+                        dst.data = ((string)dst.data).Replace((string)src.data, "");
+                        break;
+                    case RegType.MAP:
+                        if (src.type != RegType.MAP)
+                            return Result.ERR;
+                        foreach (var i in (Map)src.data)
+                            if (((Map)dst.data).ContainsKey(i.Key))
+                                ((Map)dst.data).Remove(i.Key);
+                        break;
+                    default:
+                        return Result.ERR;
+                }
+                return Result.OK;
+            });
+
+            funcList.Add("type", (dst, src) => {
+                if (src == null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (dst.readOnly) return Result.ERR;
+
+                Register reg = new Register();
+                reg.type = RegType.STR;
+                reg.readOnly = true;
+                switch (src.type)
+                {
+                    case RegType.INT: reg.data = "int"; break;
+                    case RegType.CHAR: reg.data = "char"; break;
+                    case RegType.FLOAT: reg.data = "float"; break;
+                    case RegType.STR: reg.data = "str"; break;
+                    case RegType.CODE: reg.data = "code"; break;
+                    case RegType.MAP: reg.data = "map"; break;
+                }
+                return funcList["mov"](dst, reg);
+            });
+
+            funcList.Add("len", (dst, src) => {
+                if (dst == null) return Result.ERR;
+                if (dst.readOnly) return Result.ERR;
+                Register reg = new Register();
+                reg.type = RegType.INT;
+                reg.readOnly = true;
+                if (src == null)
+                {
+                    if (useReg == null) return Result.ERR;
+                    if (useReg.type != RegType.MAP) return Result.ERR;
+                    if (!(useReg.data is Map)) return Result.ERR;
+                    reg.data = ((Map)useReg.data).Count;
+                }
+                else
+                {
+                    if (src.type != RegType.STR) return Result.ERR;
+                    reg.data = ((string)src.data).Length;
+                }
+                return funcList["mov"](dst, reg);
+            });
+
+            funcList.Add("ctn", (dst, src) => {
+                if (dst == null) return Result.ERR;
+                Register reg = new Register();
+                reg.type = RegType.INT;
+                reg.readOnly = true;
+                if (src == null)
+                {
+                    if (useReg == null) return Result.ERR;
+                    if (useReg.type != RegType.MAP) return Result.ERR;
+                    if (!(useReg.data is Map)) return Result.ERR;
+                    reg.data = ((Map)useReg.data).ContainsKey(dst) ? 1 : 0;
+                }
+                else
+                {
+                    if (src.type != RegType.STR) return Result.ERR;
+                    if (dst.type != RegType.STR) return Result.ERR;
+                    reg.data = ((string)dst.data).Contains((string)src.data) ? 1 : 0;
+                }
+                return funcList["mov"](stateReg, reg);
+            });
+
+            funcList.Add("equ", (dst, src) => {
+                if (src == null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (src.type != RegType.STR) return Result.ERR;
+                if (dst.type != RegType.STR) return Result.ERR;
+                Register reg = new Register();
+                reg.type = RegType.INT;
+                reg.readOnly = true;
+                reg.data = ((string)dst.data).Equals((string)src.data) ? 0 : 1;
+                return funcList["mov"](stateReg, reg);
             });
         }
     }
