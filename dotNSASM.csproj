@@ -5,14 +5,14 @@
     <Authors>NSDN</Authors>
     <Company>NSDN</Company>
     <Description>NyaSama Assembly Script Module in .NET</Description>
-    <Copyright>Copyright © NSDN 2014 - 2017</Copyright>
+    <Copyright>Copyright © NSDN 2014 - 2018</Copyright>
     <SignAssembly>False</SignAssembly>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageLicenseUrl>https://github.com/NSDN/NSASM</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/NSDN/dotNSASM</PackageProjectUrl>
     <PackageIconUrl>http://nya.ac.cn:32/file/nsdn.png</PackageIconUrl>
-    <PackageReleaseNotes>ver0.30 (.NET Standard 1.1)</PackageReleaseNotes>
-    <Version>0.3.0</Version>
+    <PackageReleaseNotes>ver0.45 (.NET Standard 1.1)</PackageReleaseNotes>
+    <Version>0.4.5</Version>
   </PropertyGroup>
 
   <ItemGroup>

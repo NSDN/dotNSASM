@@ -35,7 +35,7 @@ namespace dotNSASM
             public override bool Equals(object obj)
             {
                 if (obj is Register)
-                    return data == ((Register)obj).data;
+                    return type.Equals(((Register)obj).type) && data.Equals(((Register)obj).data);
                 return false;
             }
 
@@ -50,6 +50,13 @@ namespace dotNSASM
                 data = reg.data;
                 strPtr = reg.strPtr;
                 readOnly = reg.readOnly;
+            }
+
+            public Register() { }
+
+            public Register(Register reg)
+            {
+                Copy(reg);
             }
         }
 
@@ -101,6 +108,7 @@ namespace dotNSASM
 
         private bool VerifyBound(string var, char left, char right)
         {
+            if (var.Length == 0) return false;
             return var[0] == left && var[var.Length - 1] == right;
         }
 
@@ -1428,13 +1436,13 @@ namespace dotNSASM
                     if (!(reg.data is Map)) return Result.ERR;
                     if (((Map)useReg.data).ContainsKey(reg))
                         ((Map)useReg.data).Remove(reg);
-                    ((Map)useReg.data).Add(reg, src);
+                    ((Map)useReg.data).Add(new Register(reg), new Register(src));
                 }
                 else
                 {
                     if (((Map)useReg.data).ContainsKey(dst))
                         ((Map)useReg.data).Remove(dst);
-                    ((Map)useReg.data).Add(dst, src);
+                    ((Map)useReg.data).Add(new Register(dst), new Register(src));
                 }
 
                 return Result.OK;

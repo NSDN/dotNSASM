@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("NSDN")]
 [assembly: AssemblyProduct("dotNSASM")]
-[assembly: AssemblyCopyright("Copyright © NSDN 2014 - 2017")]
+[assembly: AssemblyCopyright("Copyright © NSDN 2014 - 2018")]
 [assembly: AssemblyTrademark("NSASM")]
 [assembly: AssemblyCulture("")]
 
