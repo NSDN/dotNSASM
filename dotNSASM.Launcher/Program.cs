@@ -44,6 +44,19 @@ namespace dotNSASM
                         + "ms.\n");
                         return;
                     }
+                    else
+                    {
+                        var segs = Util.GetSegments(Util.Read(args[1]));
+                        NSASM nsasm = new NSASM(64, 32, 32, segs);
+                        Stopwatch stopwatch = new Stopwatch();
+                        stopwatch.Start();
+                        nsasm.Call(args[0]);
+                        stopwatch.Stop();
+                        Console.WriteLine("This script took " +
+                            stopwatch.Elapsed.TotalMilliseconds
+                        + "ms.\n");
+                        return;
+                    }
                 }
                 if (args[0].Equals("c"))
                 {
