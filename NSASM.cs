@@ -706,7 +706,7 @@ namespace dotNSASM
             return Result.OK;
         }
 
-        protected void LoadFuncList()
+        protected virtual void LoadFuncList()
         {
             funcList.Add("rem", (dst, src) =>
             {
