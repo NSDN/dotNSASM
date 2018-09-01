@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.45 (.NET Standard 1.1)";
+        public const string Version = "0.46 (.NET Standard 1.1)";
 
         public enum RegType
         {
@@ -504,12 +504,17 @@ namespace dotNSASM
             }
         }
 
+        protected virtual NSASM Instance(NSASM super, String[][] code)
+        {
+            return new NSASM(super, code);
+        }
+
         protected Register Eval(Register register)
         {
             if (register == null) return null;
             if (register.type != RegType.CODE) return null;
             String[][] code = Util.GetSegments(register.data.ToString());
-            return new NSASM(this, code).Run();
+            return Instance(this, code).Run();
         }
 
         private string[] ConvToArray(string var)
