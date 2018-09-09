@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.46 (.NET Standard 1.1)";
+        public const string Version = "0.47 (.NET Standard 1.1)";
 
         public enum RegType
         {
@@ -248,6 +248,10 @@ namespace dotNSASM
                         if (
                             (var.Contains("x") || var.Contains("X")) &&
                             (var.Contains("h") || var.Contains("H"))
+                        ) return null;
+                        if (
+                            (var[0] < '0' || var[0] > '9') &&
+                            (var[0] != '+' || var[0] != '-')
                         ) return null;
                         try
                         {
