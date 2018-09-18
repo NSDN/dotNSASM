@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.47 (.NET Standard 1.1)";
+        public const string Version = "0.48 (.NET Standard 1.1)";
 
         public enum RegType
         {
@@ -643,6 +643,7 @@ namespace dotNSASM
                 case '-': dst.data = (int)ConvValue(dst.data, RegType.INT) - (int)ConvValue(src.data, RegType.INT); break;
                 case '*': dst.data = (int)ConvValue(dst.data, RegType.INT) * (int)ConvValue(src.data, RegType.INT); break;
                 case '/': dst.data = (int)ConvValue(dst.data, RegType.INT) / (int)ConvValue(src.data, RegType.INT); break;
+                case '%': dst.data = (int)ConvValue(dst.data, RegType.INT) % (int)ConvValue(src.data, RegType.INT); break;
                 case '&': dst.data = (int)ConvValue(dst.data, RegType.INT) & (int)ConvValue(src.data, RegType.INT); break;
                 case '|': dst.data = (int)ConvValue(dst.data, RegType.INT) | (int)ConvValue(src.data, RegType.INT); break;
                 case '~': dst.data = ~(int)ConvValue(dst.data, RegType.INT); break;
@@ -662,6 +663,7 @@ namespace dotNSASM
                 case '-': dst.data = (char)ConvValue(dst.data, RegType.CHAR) - (char)ConvValue(src.data, RegType.CHAR); break;
                 case '*': dst.data = (char)ConvValue(dst.data, RegType.CHAR) * (char)ConvValue(src.data, RegType.CHAR); break;
                 case '/': dst.data = (char)ConvValue(dst.data, RegType.CHAR) / (char)ConvValue(src.data, RegType.CHAR); break;
+                case '%': dst.data = (char)ConvValue(dst.data, RegType.CHAR) % (char)ConvValue(src.data, RegType.CHAR); break;
                 case '&': dst.data = (char)ConvValue(dst.data, RegType.CHAR) & (char)ConvValue(src.data, RegType.CHAR); break;
                 case '|': dst.data = (char)ConvValue(dst.data, RegType.CHAR) | (char)ConvValue(src.data, RegType.CHAR); break;
                 case '~': dst.data = ~(char)ConvValue(dst.data, RegType.CHAR); break;
@@ -1132,6 +1134,17 @@ namespace dotNSASM
                     return Calc(dst, Eval(src), '/');
                 else
                     return Calc(dst, src, '/');
+            });
+
+            funcList.Add("mod", (dst, src) =>
+            {
+                if (src == null) return Result.ERR;
+                if (dst == null) return Result.ERR;
+                if (dst.readOnly) return Result.ERR;
+                if (src.type == RegType.CODE)
+                    return Calc(dst, Eval(src), '%');
+                else
+                    return Calc(dst, src, '%');
             });
 
             funcList.Add("and", (dst, src) =>
