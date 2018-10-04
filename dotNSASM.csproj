@@ -11,8 +11,8 @@
     <PackageLicenseUrl>https://github.com/NSDN/NSASM</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/NSDN/dotNSASM</PackageProjectUrl>
     <PackageIconUrl>http://nya.ac.cn:32/file/nsdn.png</PackageIconUrl>
-    <PackageReleaseNotes>ver0.46 (.NET Standard 1.1)</PackageReleaseNotes>
-    <Version>0.4.6</Version>
+    <PackageReleaseNotes>ver0.48 (.NET Standard 1.1)</PackageReleaseNotes>
+    <Version>0.4.8</Version>
   </PropertyGroup>
 
   <ItemGroup>

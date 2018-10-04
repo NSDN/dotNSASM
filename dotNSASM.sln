@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dotNSASM", "dotNSASM.csproj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dotNSASM.Launcher", "dotNSASM.Launcher\dotNSASM.Launcher.csproj", "{A0EACE9B-C432-4273-9B66-9057D2F5F941}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dotNSASM.PreProcessor", "dotNSASM.PreProcessor\dotNSASM.PreProcessor.csproj", "{D302F1CD-A482-4330-B70A-F24ADEFA766B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,8 +23,15 @@ Global
 		{A0EACE9B-C432-4273-9B66-9057D2F5F941}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A0EACE9B-C432-4273-9B66-9057D2F5F941}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A0EACE9B-C432-4273-9B66-9057D2F5F941}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D302F1CD-A482-4330-B70A-F24ADEFA766B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D302F1CD-A482-4330-B70A-F24ADEFA766B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D302F1CD-A482-4330-B70A-F24ADEFA766B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D302F1CD-A482-4330-B70A-F24ADEFA766B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4F776D66-18DD-4D73-9B77-2E96A6CFF2D6}
 	EndGlobalSection
 EndGlobal
