@@ -1,7 +1,0 @@
-﻿def.func <a, b, c> {
-    mov a, 0
-    mov b, 0
-    mov c, 0
-}
-
-func<r0, r1, r2>

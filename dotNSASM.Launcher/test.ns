@@ -1,5 +1,16 @@
 ﻿run <main>
 
+.print<value> {
+	prt value
+}
+
+.testFunc<a, b, c, d> {
+	prt a
+	prt b
+	prt c
+	prt d
+}
+
 <main> {
 	map m1 = M(
 		mov r0, 20
@@ -39,6 +50,9 @@
     
     eval r0, c
     out "result is "
-    prt r0
+    print<r0>
+
+	testFunc<"hello1", "hello2", "hello3", "hello4">
+
     end
 }
