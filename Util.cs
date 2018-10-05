@@ -340,7 +340,8 @@ namespace dotNSASM
 
             const int IDLE = 0, RUN = 1;
             int state = IDLE;
-            string buf = ""; char old, now = '\0';
+            StringBuilder builder = new StringBuilder("");
+            char old, now = '\0';
             for (int i = 0; i < str.Length; i++)
             {
                 old = now;
@@ -350,18 +351,18 @@ namespace dotNSASM
                     case IDLE:
                         if (now == split)
                         {
-                            args.Add(buf);
-                            buf = "";
+                            args.Add(builder.ToString());
+                            builder.Clear();
                             continue;
                         }
                         if (now == ' ' || now == '\t')
                             continue;
-                        buf += now;
+                        builder.Append(now);
                         if (now == '\'' || now == '\"')
                             state = RUN;
                         break;
                     case RUN:
-                        buf += now;
+                        builder.Append(now);
                         if (now == '\'' || now == '\"')
                             if (old != '\\')
                                 state = IDLE;
@@ -371,8 +372,8 @@ namespace dotNSASM
                 }
             }
 
-            if (state == IDLE && buf != "")
-                args.Add(buf);
+            if (state == IDLE && builder.Length != 0)
+                args.Add(builder.ToString());
 
             return args;
         }
