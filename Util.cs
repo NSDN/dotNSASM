@@ -409,9 +409,6 @@ namespace dotNSASM
                 ret.args = ParseArgs(arg, ',');
                 ret.block = body;
 
-                if (ret.block.Contains(ret.name)) // Self-call not allowed
-                    return null;
-
                 return ret;
             }
         }
@@ -430,7 +427,7 @@ namespace dotNSASM
 
             StringReader reader = new StringReader(varBuf);
 
-            String head = "", body = "", tmp; DefBlock blk;
+            string head = "", body = "", tmp; DefBlock blk;
             const int IDLE = 0, RUN = 1;
             int state = IDLE, count = 0;
             while (reader.Peek() != -1)
