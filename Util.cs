@@ -822,7 +822,7 @@ namespace dotNSASM
             }
 
             string[][] code = GetSegments(str);
-            ushort segCnt = (ushort)code.GetUpperBound(0);
+            ushort segCnt = (ushort)code.GetLength(0);
 
             List<byte> bytes = new List<byte>();
             PutToList(bytes, "NS");
@@ -834,7 +834,7 @@ namespace dotNSASM
 
             foreach (string[] seg in code)
             {
-                PutToList(bytes, 0x5555);
+                PutToList(bytes, 0xA5A5);
                 PutToList(bytes, seg[0]);
                 PutToList(bytes, 0xAAAA);
                 PutToList(bytes, seg[1]);
@@ -860,9 +860,83 @@ namespace dotNSASM
             return PreProcessCode(str);
         }
 
+        private static ushort GetUint16(byte[] data, int offset)
+        {
+            ushort res = 0;
+            if (data.Length >= offset + 1)
+                res = (ushort)(data[offset] | (data[offset + 1] << 8));
+            return res;
+        }
+
+        private static string GetStr2(byte[] data, int offset)
+        {
+            string res = "";
+            if (data.Length >= offset + 1)
+            {
+                res += (char)data[offset];
+                res += (char)data[offset + 1];
+            }
+            return res;
+        }
+
         public static void Binary(string path)
         {
+            byte[] data = BinaryInput.Invoke(path);
+            if (data.Length < 16) return;
 
+            if (GetStr2(data, 0) != "NS") return;
+            if (GetUint16(data, 2) != 0xFFFF) return;
+
+            ushort sum = 0;
+            for (int i = 0; i < data.Length - 2; i++)
+                sum += data[i];
+            if (sum != GetUint16(data, data.Length - 2))
+                return;
+
+            ushort heap, stack, regs, segCnt;
+            heap = GetUint16(data, 4);
+            stack = GetUint16(data, 6);
+            regs = GetUint16(data, 8);
+            segCnt = GetUint16(data, 10);
+
+            int offset = 12, segPos = -1;
+            string[][] code = new string[segCnt][];
+            for (int i = 0; i < segCnt; i++)
+                code[i] = new string[2];
+
+            const int SEG_NAME = 0, SEG_CODE = 1;
+            int state = SEG_NAME, offmax = data.Length - 1;
+            while (offset <= offmax - 4)
+            {
+                if (GetUint16(data, offset) == 0xA5A5)
+                {
+                    if (segPos >= segCnt - 1)
+                        return;
+                    segPos += 1; offset += 2;
+                    state = SEG_NAME;
+                    code[segPos][0] = "";
+                }
+                else if (GetUint16(data, offset) == 0xAAAA)
+                {
+                    offset += 2;
+                    state = SEG_CODE;
+                    code[segPos][1] = "";
+                }
+                else
+                {
+                    if (state == SEG_NAME)
+                        code[segPos][0] += (char)data[offset];
+                    else if (state == SEG_CODE)
+                        code[segPos][1] += (char)data[offset];
+                    offset += 1;
+                }
+            }
+
+            if (GetUint16(data, offset) != 0xFFFF) return;
+
+            NSASM nsasm = new NSASM(heap, stack, regs, code);
+            nsasm.Run();
+            Print("\nNSASM running finished.\n\n");
         }
 
     }

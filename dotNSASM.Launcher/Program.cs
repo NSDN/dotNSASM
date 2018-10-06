@@ -51,7 +51,7 @@ namespace dotNSASM
                     {
                         string res = Util.Compile(args[1], args[2]);
                         if (res != null)
-                            Console.WriteLine("Compilation Done.\n");
+                            Console.WriteLine("Compilation OK.\n");
                         return;
                     }
                 }
@@ -76,11 +76,11 @@ namespace dotNSASM
                     }
                     else
                     {
-                        var segs = Util.GetSegments(Util.Read(args[1]));
+                        var segs = Util.GetSegments(Util.Read(args[0]));
                         NSASM nsasm = new NSASM(64, 32, 32, segs);
                         Stopwatch stopwatch = new Stopwatch();
                         stopwatch.Start();
-                        nsasm.Call(args[0]);
+                        nsasm.Call(args[1]);
                         stopwatch.Stop();
                         Console.WriteLine("This script took " +
                             stopwatch.Elapsed.TotalMilliseconds
