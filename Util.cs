@@ -10,6 +10,8 @@ namespace dotNSASM
         public delegate void Printer(Object value);
         public delegate string Scanner();
         public delegate string FileReader(string path);
+        public delegate byte[] BinReader(string path);
+        public delegate void BinWriter(string path, byte[] bytes);
 
         public static Printer Output
         {
@@ -20,6 +22,14 @@ namespace dotNSASM
             internal get; set;
         }
         public static FileReader FileInput
+        {
+            internal get; set;
+        }
+        public static BinReader BinaryInput
+        {
+            internal get; set;
+        }
+        public static BinWriter BinaryOutput
         {
             internal get; set;
         }
@@ -225,10 +235,8 @@ namespace dotNSASM
             return var;
         }
 
-        public static string[][] GetSegments(string var)
+        public static string PreProcessCode(string var)
         {
-            Dictionary<string, string> segBuf = new Dictionary<string, string>();
-            LinkedList<string> pub = new LinkedList<string>();
             string varBuf = var;
 
             List<DefBlock> blocks = GetDefBlocks(varBuf);
@@ -246,6 +254,16 @@ namespace dotNSASM
 
                 varBuf = FormatLambda(varBuf);
             }
+
+            return varBuf;
+        }
+
+        public static string[][] GetSegments(string var)
+        {
+            Dictionary<string, string> segBuf = new Dictionary<string, string>();
+            LinkedList<string> pub = new LinkedList<string>();
+
+            string varBuf = PreProcessCode(var);
 
             // Here we got formated code
 
@@ -594,6 +612,12 @@ namespace dotNSASM
 
         public static void Run(string path)
         {
+            if (path.EndsWith(".nsb"))
+            {
+                Binary(path);
+                return;
+            }
+
             string str = Read(path);
             if (str == null) return;
 
@@ -736,6 +760,109 @@ namespace dotNSASM
 
                 lines += 1;
             }
+        }
+
+        private static void PutToList(List<byte> list, ushort value)
+        {
+            list.Add((byte)(value & 0xFF));
+            list.Add((byte)(value >> 8));
+        }
+
+        private static void PutToList(List<byte> list, string value)
+        {
+            for (int i = 0; i < value.Length; i++)
+                list.Add((byte)value[i]);
+        }
+
+        public static string Compile(string inPath, string outPath)
+        {
+            string str = Read(inPath);
+            if (str == null) return null;
+
+            if (outPath == null) return PreProcessCode(str);
+
+            ushort heap = 64, stack = 32, regs = 16;
+
+            string conf = GetSegment(str, ".<conf>");
+            if (conf == null)
+            {
+                Print("Conf load error.\n");
+                Print("At file: " + inPath + "\n\n");
+                return null;
+            }
+            if (conf.Length > 0)
+            {
+                StringReader confReader = new StringReader(conf);
+                try
+                {
+                    string buf;
+                    while (confReader.Peek() != -1)
+                    {
+                        buf = confReader.ReadLine();
+                        switch (buf.Split(' ')[0])
+                        {
+                            case "heap":
+                                heap = ushort.Parse(buf.Split(' ')[1]);
+                                break;
+                            case "stack":
+                                stack = ushort.Parse(buf.Split(' ')[1]);
+                                break;
+                            case "reg":
+                                regs = ushort.Parse(buf.Split(' ')[1]);
+                                break;
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Print("Conf load error.\n");
+                    Print("At file: " + inPath + "\n\n");
+                    return null;
+                }
+            }
+
+            string[][] code = GetSegments(str);
+            ushort segCnt = (ushort)code.GetUpperBound(0);
+
+            List<byte> bytes = new List<byte>();
+            PutToList(bytes, "NS");
+            PutToList(bytes, 0xFFFF);
+            PutToList(bytes, heap);
+            PutToList(bytes, stack);
+            PutToList(bytes, regs);
+            PutToList(bytes, segCnt);
+
+            foreach (string[] seg in code)
+            {
+                PutToList(bytes, 0x5555);
+                PutToList(bytes, seg[0]);
+                PutToList(bytes, 0xAAAA);
+                PutToList(bytes, seg[1]);
+            }
+
+            PutToList(bytes, 0xFFFF);
+            ushort sum = 0;
+            for (int i = 0; i < bytes.Count; i++)
+                sum += bytes[i];
+            PutToList(bytes, sum);
+
+            try
+            {
+                BinaryOutput.Invoke(outPath, bytes.ToArray());
+            }
+            catch (Exception e)
+            {
+                Print("File write failed.\n");
+                Print("At file: " + outPath + "\n\n");
+                return null;
+            }
+
+            return PreProcessCode(str);
+        }
+
+        public static void Binary(string path)
+        {
+
         }
 
     }
