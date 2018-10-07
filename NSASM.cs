@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.50 (.NET Standard 1.1)";
+        public const string Version = "0.51 (.NET Standard 1.1)";
 
         public enum RegType
         {
