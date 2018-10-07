@@ -51,7 +51,7 @@ namespace dotNSASM
                     {
                         string res = Util.Compile(args[1], args[2]);
                         if (res != null)
-                            Console.WriteLine("Compilation OK.\n");
+                            Console.WriteLine("Compilation OK.\n\n");
                         return;
                     }
                 }
@@ -65,7 +65,7 @@ namespace dotNSASM
                         stopwatch.Stop();
                         Console.WriteLine("This script took " +
                             stopwatch.Elapsed.TotalMilliseconds
-                        + "ms.\n");
+                        + "ms.\n\n");
                         return;
                     }
                     else if (args[0].Equals("c"))
@@ -84,7 +84,7 @@ namespace dotNSASM
                         stopwatch.Stop();
                         Console.WriteLine("This script took " +
                             stopwatch.Elapsed.TotalMilliseconds
-                        + "ms.\n");
+                        + "ms.\n\n");
                         return;
                     }
                 }
