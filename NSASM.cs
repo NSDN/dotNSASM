@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.51 (.NET Standard 1.1)";
+        public const string Version = "0.52 (.NET Standard 1.1)";
 
         public enum RegType
         {
@@ -1008,6 +1008,7 @@ namespace dotNSASM
                                     res = res + parts[i];
                                     if (i < parts.Length - 2) res = res + "\n";
                                 }
+                                dst.data = res;
                             }
                         }
                         else if (src.type == RegType.CODE)
@@ -1018,7 +1019,7 @@ namespace dotNSASM
                         }
                         else if (src.type == RegType.STR)
                         {
-                            dst.data = dst.data.ToString() + '\n' + src.data.ToString();
+                            dst.data = dst.data.ToString() + '\n' + src.data.ToString().Substring(src.strPtr);
                         }
                         else return Result.ERR;
                     }
@@ -1036,6 +1037,7 @@ namespace dotNSASM
                                     res = res + parts[i];
                                     if (i < parts.Length - 2) res = res + "\n";
                                 }
+                                dst.data = res;
                             }
                         }
                         else if (src.type == RegType.CODE)
@@ -1044,7 +1046,7 @@ namespace dotNSASM
                         }
                         else if (src.type == RegType.STR)
                         {
-                            dst.data = dst.data.ToString() + '\n' + src.data.ToString();
+                            dst.data = dst.data.ToString() + '\n' + src.data.ToString().Substring(src.strPtr);
                         }
                         else return Result.ERR;
                     }
@@ -1432,12 +1434,17 @@ namespace dotNSASM
                 if (dst == null) return Result.ERR;
 
                 if (src == null) Eval(dst);
-                else dst.Copy(Eval(src));
+                else
+                {
+                    if (dst.readOnly) return Result.ERR;
+                    dst.Copy(Eval(src));
+                }
 
                 return Result.OK;
             });
 
-            funcList.Add("use", (dst, src) => {
+            funcList.Add("use", (dst, src) =>
+            {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1446,7 +1453,8 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("put", (dst, src) => {
+            funcList.Add("put", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (useReg == null) return Result.ERR;
@@ -1470,7 +1478,8 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("get", (dst, src) => {
+            funcList.Add("get", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1492,7 +1501,8 @@ namespace dotNSASM
                 }
             });
 
-            funcList.Add("cat", (dst, src) => {
+            funcList.Add("cat", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1521,7 +1531,8 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("dog", (dst, src) => {
+            funcList.Add("dog", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1545,7 +1556,8 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("type", (dst, src) => {
+            funcList.Add("type", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1565,7 +1577,8 @@ namespace dotNSASM
                 return funcList["mov"](dst, reg);
             });
 
-            funcList.Add("len", (dst, src) => {
+            funcList.Add("len", (dst, src) =>
+            {
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
                 Register reg = new Register();
@@ -1586,7 +1599,8 @@ namespace dotNSASM
                 return funcList["mov"](dst, reg);
             });
 
-            funcList.Add("ctn", (dst, src) => {
+            funcList.Add("ctn", (dst, src) =>
+            {
                 if (dst == null) return Result.ERR;
                 Register reg = new Register();
                 reg.type = RegType.INT;
@@ -1607,7 +1621,8 @@ namespace dotNSASM
                 return funcList["mov"](stateReg, reg);
             });
 
-            funcList.Add("equ", (dst, src) => {
+            funcList.Add("equ", (dst, src) =>
+            {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (src.type != RegType.STR) return Result.ERR;
