@@ -136,9 +136,9 @@ namespace dotNSASM
             return left + right;
         }
 
-        public static String FormatCode(String var)
+        public static string FormatCode(string var)
         {
-            String varBuf = ""; StringReader reader = new StringReader(var);
+            string varBuf = ""; StringReader reader = new StringReader(var);
             while (reader.Peek() != -1)
             {
                 varBuf = varBuf + FormatLine(reader.ReadLine()) + "\n";
@@ -157,7 +157,7 @@ namespace dotNSASM
             return varBuf;
         }
 
-        public static String RepairBrackets(String var, String left, String right)
+        public static string RepairBrackets(string var, string left, string right)
         {
             while (var.Contains('\n' + left))
                 var = var.Replace('\n' + left, left);
@@ -172,24 +172,25 @@ namespace dotNSASM
             return var;
         }
 
-        public static String EncodeLambda(String var)
+        public static string EncodeLambda(string var)
         {
             return var.Replace("\n", "\f");
         }
 
-        public static String DecodeLambda(String var)
+        public static string DecodeLambda(string var)
         {
             return var.Replace("\f", "\n");
         }
 
-        public static String FormatString(String var)
+        public static string FormatString(string var)
         {
             return var.Replace("\\\"", "\"").Replace("\\\'", "\'")
                     .Replace("\\\\", "\\").Replace("\\n", "\n")
-                    .Replace("\\t", "\t");
+                    .Replace("\\t", "\t").Replace("\\\"", "\"")
+                    .Replace("\\\'", "\'");
         }
 
-        public static String FormatLambda(String var)
+        public static string FormatLambda(string var)
         {
             const int IDLE = 0, RUN = 1, DONE = 2;
             int state = IDLE, count = 0, begin = 0, end = 0;
@@ -219,11 +220,11 @@ namespace dotNSASM
                         }
                         break;
                     case DONE:
-                        String a, b, c;
+                        string a, b, c;
                         a = var.Substring(0, begin);
                         b = var.Substring(begin, end - begin + 1);
                         c = var.Substring(end + 1);
-                        b = EncodeLambda(b);
+                        b = EncodeLambda(b); // Here do not modify b's length
                         var = a + b + c;
                         state = IDLE;
                         break;
@@ -235,9 +236,65 @@ namespace dotNSASM
             return var;
         }
 
+        public static Dictionary<string, string> GetStrings(string var, out string res)
+        {
+            Dictionary<string, string> strings = new Dictionary<string, string>();
+            string key = "";
+            const int IDLE = 0, RUN = 1, DONE = 2;
+            int state = IDLE, count = 0, begin = 0, end = 0;
+            string a = "", b = "", c = "";
+
+            string str = var;
+            for (int i = 0; i < str.Length; i++)
+            {
+                switch (state)
+                {
+                    case IDLE:
+                        count = begin = end = 0;
+                        if (str[i] == '\"' || str[i] == '\'')
+                        {
+                            begin = i;
+                            count = str[i] == '\"' ? 2 : 1;
+                            state = RUN;
+                        }
+                        break;
+                    case RUN:
+                        if (str[i] == '\"' && str[i - 1] != '\\')
+                            count -= 2;
+                        else if (str[i] == '\'' && str[i - 1] != '\\')
+                            count -= 1;
+                        if (count <= 0)
+                        {
+                            end = i;
+                            state = DONE;
+                        }
+                        break;
+                    case DONE:
+                        a = str.Substring(0, begin);
+                        b = str.Substring(begin, end - begin + 1);
+                        c = str.Substring(end + 1);
+                        key = "_str_" + b.GetHashCode().ToString("x") + "_"; // Here b's length is modified
+                        strings[key] = b;
+                        str = a + key + c;
+                        state = IDLE;
+                        i = begin + key.Length; // Fix the i
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            res = str;
+
+            return strings;
+        }
+
         public static string PreProcessCode(string var)
         {
-            string varBuf = var;
+            string str = "";
+            var strings = GetStrings(var, out str);
+            // Pre-process strings and chars ok
+            string varBuf = str;
 
             List<DefBlock> blocks = GetDefBlocks(varBuf);
             if (blocks != null)
@@ -245,7 +302,7 @@ namespace dotNSASM
 
             if (blocks == null || varBuf == null)
             {
-                varBuf = var;
+                varBuf = str;
 
                 varBuf = FormatCode(varBuf);
                 varBuf = RepairBrackets(varBuf, "{", "}");
@@ -254,6 +311,9 @@ namespace dotNSASM
 
                 varBuf = FormatLambda(varBuf);
             }
+
+            foreach (var i in strings)
+                varBuf = varBuf.Replace(i.Key, i.Value);
 
             return varBuf;
         }
@@ -267,9 +327,13 @@ namespace dotNSASM
 
             // Here we got formated code
 
+            string str = "";
+            var strings = GetStrings(varBuf, out str);
+            varBuf = str;
+
             StringReader reader = new StringReader(varBuf);
 
-            String head = "", body = "", tmp;
+            string head = "", body = "", tmp;
             const int IDLE = 0, RUN = 1;
             int state = IDLE, count = 0;
             while (reader.Peek() != -1)
@@ -317,7 +381,7 @@ namespace dotNSASM
             for (int i = 0; i < ret.Length; i++)
                 ret[i] = new string[2];
 
-            ret[0][0] = "_pub_" + var.GetHashCode().ToString("x");
+            ret[0][0] = "_pub_" + var.GetHashCode().ToString("x") + "_";
             ret[0][1] = "";
             foreach (string i in pub)
             {
@@ -331,6 +395,10 @@ namespace dotNSASM
                 ret[i + 1][0] = segKeys[i];
                 ret[i + 1][1] = segBuf[ret[i + 1][0]];
             }
+
+            for (int i = 0; i < ret.Length; i++)
+                foreach (var it in strings)
+                    ret[i][1] = ret[i][1].Replace(it.Key, it.Value);
 
             return ret;
         }
@@ -364,7 +432,7 @@ namespace dotNSASM
             {
                 old = now;
                 now = str[i];
-                switch(state)
+                switch (state)
                 {
                     case IDLE:
                         if (now == split)

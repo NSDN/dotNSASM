@@ -7,7 +7,7 @@ namespace dotNSASM
 {
     public class NSASM
     {
-        public const string Version = "0.52 (.NET Standard 1.1)";
+        public const string Version = "0.54 (.NET Standard 1.1)";
 
         public enum RegType
         {
@@ -17,7 +17,7 @@ namespace dotNSASM
         public class Register
         {
             public RegType type;
-            public Object data;
+            public object data;
             public int strPtr = 0;
             public bool readOnly;
 
@@ -77,7 +77,7 @@ namespace dotNSASM
             }
         }
 
-        public delegate Result Operator(Register dst, Register src);
+        public delegate Result Operator(Register dst, Register src, Register ext);
 
         private Dictionary<string, Register> heapManager;
         private Stack<Register> stackManager;
@@ -318,7 +318,7 @@ namespace dotNSASM
                     register.readOnly = true;
                     register.data = new Map();
                     code = Util.DecodeLambda(code);
-                    funcList["mov"].Invoke(regGroup[regCnt], register);
+                    funcList["mov"].Invoke(regGroup[regCnt], register, null);
 
                     Register reg = new Register();
                     reg.type = RegType.CODE; reg.readOnly = true;
@@ -332,8 +332,8 @@ namespace dotNSASM
 
         public Result Execute(string var)
         {
-            string op, dst, src;
-            Register dr = null, sr = null;
+            string op, dst, src, ext;
+            Register dr = null, sr = null, er = null;
 
             op = var.Split(' ')[0];
             op = op.ToLower(); //To lower case
@@ -356,28 +356,29 @@ namespace dotNSASM
                     dr.readOnly = true; dr.type = RegType.STR; dr.data = dst;
                     sr = GetRegister(src);
                 }
+                else if (op == "rem")
+                {
+                    //Comment
+                    return Result.OK;
+                }
                 else
                 {
                     //Normal code
-                    if (
-                        VerifyWord(var.Substring(op.Length + 1), WordType.STR) ||
-                        VerifyWord(var.Substring(op.Length + 1), WordType.CHAR)
-                    )
-                    {
-                        dst = var.Substring(op.Length + 1);
-                        src = "";
-                    }
-                    else
-                    {
-                        dst = var.Substring(op.Length + 1).Split(',')[0];
-                        if (var.Length <= op.Length + 1 + dst.Length)
-                            src = "";
-                        else if (var[op.Length + 1 + dst.Length] == ',')
-                            src = var.Substring(op.Length + 1 + dst.Length + 1);
-                        else src = "";
-                    }
+                    string regs = var.Substring(op.Length + 1), res = "";
+                    var strings = Util.GetStrings(regs, out res);
+                    var args = Util.ParseArgs(res, ',');
+                    for (int i = 0; i < args.Count; i++)
+                        foreach (var it in strings)
+                            args[i].Replace(it.Key, it.Value);
+
+                    dst = src = ext = "";
+                    if (args.Count > 0) dst = args[0];
+                    if (args.Count > 1) src = args[1];
+                    if (args.Count > 2) ext = args[2];
+
                     dr = GetRegister(dst);
                     sr = GetRegister(src);
+                    er = GetRegister(ext);
                 }
             }
 
@@ -385,7 +386,7 @@ namespace dotNSASM
                 return VerifyWord(op, WordType.TAG) ? Result.OK : Result.ERR;
 
             prevDstReg = dr != null ? dr : prevDstReg;
-            return funcList[op].Invoke(dr, sr);
+            return funcList[op].Invoke(dr, sr, er);
         }
 
         public Register Run()
@@ -719,12 +720,12 @@ namespace dotNSASM
 
         protected virtual void LoadFuncList()
         {
-            funcList.Add("rem", (dst, src) =>
+            funcList.Add("rem", (dst, src, ext) =>
             {
                 return Result.OK;
             });
 
-            funcList.Add("var", (dst, src) =>
+            funcList.Add("var", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -735,7 +736,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("int", (dst, src) =>
+            funcList.Add("int", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -748,7 +749,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("char", (dst, src) =>
+            funcList.Add("char", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -761,7 +762,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("float", (dst, src) =>
+            funcList.Add("float", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -774,7 +775,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("str", (dst, src) =>
+            funcList.Add("str", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -787,7 +788,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("code", (dst, src) =>
+            funcList.Add("code", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -800,7 +801,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("map", (dst, src) =>
+            funcList.Add("map", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -813,8 +814,16 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("mov", (dst, src) =>
+            funcList.Add("mov", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -836,7 +845,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("push", (dst, src) =>
+            funcList.Add("push", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -845,7 +854,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("pop", (dst, src) =>
+            funcList.Add("pop", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -854,7 +863,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("in", (dst, src) =>
+            funcList.Add("in", (dst, src, ext) =>
             {
                 if (src == null)
                 {
@@ -931,7 +940,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("out", (dst, src) =>
+            funcList.Add("out", (dst, src, ext) =>
             {
                 if (dst == null) return Result.ERR;
                 if (src == null)
@@ -989,7 +998,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("prt", (dst, src) =>
+            funcList.Add("prt", (dst, src, ext) =>
             {
                 if (dst == null) return Result.ERR;
                 if (src != null)
@@ -1070,8 +1079,20 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("add", (dst, src) =>
+            funcList.Add("add", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["add"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1081,7 +1102,7 @@ namespace dotNSASM
                     return Calc(dst, src, '+');
             });
 
-            funcList.Add("inc", (dst, src) =>
+            funcList.Add("inc", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1093,8 +1114,20 @@ namespace dotNSASM
                 return Calc(dst, register, '+');
             });
 
-            funcList.Add("sub", (dst, src) =>
+            funcList.Add("sub", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["sub"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1104,7 +1137,7 @@ namespace dotNSASM
                     return Calc(dst, src, '-');
             });
 
-            funcList.Add("dec", (dst, src) =>
+            funcList.Add("dec", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1116,8 +1149,20 @@ namespace dotNSASM
                 return Calc(dst, register, '-');
             });
 
-            funcList.Add("mul", (dst, src) =>
+            funcList.Add("mul", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mul"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1127,8 +1172,20 @@ namespace dotNSASM
                     return Calc(dst, src, '*');
             });
 
-            funcList.Add("div", (dst, src) =>
+            funcList.Add("div", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["div"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1138,8 +1195,20 @@ namespace dotNSASM
                     return Calc(dst, src, '/');
             });
 
-            funcList.Add("mod", (dst, src) =>
+            funcList.Add("mod", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mod"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1149,8 +1218,20 @@ namespace dotNSASM
                     return Calc(dst, src, '%');
             });
 
-            funcList.Add("and", (dst, src) =>
+            funcList.Add("and", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["and"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1160,8 +1241,20 @@ namespace dotNSASM
                     return Calc(dst, src, '&');
             });
 
-            funcList.Add("or", (dst, src) =>
+            funcList.Add("or", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["or"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1171,8 +1264,20 @@ namespace dotNSASM
                     return Calc(dst, src, '|');
             });
 
-            funcList.Add("xor", (dst, src) =>
+            funcList.Add("xor", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["xor"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1182,7 +1287,7 @@ namespace dotNSASM
                     return Calc(dst, src, '^');
             });
 
-            funcList.Add("not", (dst, src) =>
+            funcList.Add("not", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1190,8 +1295,20 @@ namespace dotNSASM
                 return Calc(dst, null, '~');
             });
 
-            funcList.Add("shl", (dst, src) =>
+            funcList.Add("shl", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["shl"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1201,8 +1318,20 @@ namespace dotNSASM
                     return Calc(dst, src, '<');
             });
 
-            funcList.Add("shr", (dst, src) =>
+            funcList.Add("shr", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["shr"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1212,48 +1341,48 @@ namespace dotNSASM
                     return Calc(dst, src, '>');
             });
 
-            funcList.Add("cmp", (dst, src) =>
+            funcList.Add("cmp", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
-                if (funcList["mov"].Invoke(stateReg, dst) == Result.ERR)
+                if (funcList["mov"].Invoke(stateReg, dst, null) == Result.ERR)
                     return Result.ERR;
                 if (src.type == RegType.CODE)
                 {
-                    if (funcList["sub"].Invoke(stateReg, Eval(src)) == Result.ERR)
+                    if (funcList["sub"].Invoke(stateReg, Eval(src), null) == Result.ERR)
                         return Result.ERR;
                 }
                 else
                 {
-                    if (funcList["sub"].Invoke(stateReg, src) == Result.ERR)
+                    if (funcList["sub"].Invoke(stateReg, src, null) == Result.ERR)
                         return Result.ERR;
                 }
                 return Result.OK;
             });
 
-            funcList.Add("test", (dst, src) =>
+            funcList.Add("test", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.type == RegType.CODE)
                 {
-                    if (funcList["mov"].Invoke(stateReg, Eval(dst)) == Result.ERR)
+                    if (funcList["mov"].Invoke(stateReg, Eval(dst), null) == Result.ERR)
                         return Result.ERR;
                 }
                 else
                 {
-                    if (funcList["mov"].Invoke(stateReg, dst) == Result.ERR)
+                    if (funcList["mov"].Invoke(stateReg, dst, null) == Result.ERR)
                         return Result.ERR;
                 }
 
                 Register reg = new Register();
                 reg.type = dst.type; reg.readOnly = false; reg.data = 0;
-                if (funcList["sub"].Invoke(stateReg, reg) == Result.ERR)
+                if (funcList["sub"].Invoke(stateReg, reg, null) == Result.ERR)
                     return Result.ERR;
                 return Result.OK;
             });
 
-            funcList.Add("jmp", (dst, src) =>
+            funcList.Add("jmp", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1284,50 +1413,80 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funcList.Add("jz", (dst, src) =>
+            funcList.Add("jz", (dst, src, ext) =>
             {
                 if ((float)ConvValue(stateReg.data, RegType.FLOAT) == 0)
                 {
-                    return funcList["jmp"].Invoke(dst, src);
+                    return funcList["jmp"].Invoke(dst, src, null);
                 }
                 return Result.OK;
             });
 
-            funcList.Add("jnz", (dst, src) =>
+            funcList.Add("jnz", (dst, src, ext) =>
             {
                 if ((float)ConvValue(stateReg.data, RegType.FLOAT) != 0)
                 {
-                    return funcList["jmp"].Invoke(dst, src);
+                    return funcList["jmp"].Invoke(dst, src, null);
                 }
                 return Result.OK;
             });
 
-            funcList.Add("jg", (dst, src) =>
+            funcList.Add("jg", (dst, src, ext) =>
             {
                 if ((float)ConvValue(stateReg.data, RegType.FLOAT) > 0)
                 {
-                    return funcList["jmp"].Invoke(dst, src);
+                    return funcList["jmp"].Invoke(dst, src, null);
                 }
                 return Result.OK;
             });
 
-            funcList.Add("jl", (dst, src) =>
+            funcList.Add("jl", (dst, src, ext) =>
             {
                 if ((float)ConvValue(stateReg.data, RegType.FLOAT) < 0)
                 {
-                    return funcList["jmp"].Invoke(dst, src);
+                    return funcList["jmp"].Invoke(dst, src, null);
                 }
                 return Result.OK;
             });
 
-            funcList.Add("end", (dst, src) =>
+            funcList.Add("loop", (dst, src, ext) =>
+            {
+                if (dst == null) return Result.ERR;
+                if (src == null) return Result.ERR;
+                if (ext == null) return Result.ERR;
+
+                if (dst.type != RegType.INT) return Result.ERR;
+                if (dst.readOnly) return Result.ERR;
+                if (src.type != RegType.INT) return Result.ERR;
+                if (ext.type != RegType.STR) return Result.ERR;
+                if (!VerifyWord((string)ext.data, WordType.TAG)) return Result.ERR;
+
+                if ((int)src.data > 0)
+                {
+                    if (funcList["inc"].Invoke(dst, null, null) == Result.ERR)
+                        return Result.ERR;
+                }
+                else
+                {
+                    if (funcList["dec"].Invoke(dst, null, null) == Result.ERR)
+                        return Result.ERR;
+                }
+                if (funcList["cmp"].Invoke(dst, src, null) == Result.ERR)
+                    return Result.ERR;
+                if (funcList["jnz"].Invoke(ext, null, null) == Result.ERR)
+                    return Result.ERR;
+
+                return Result.OK;
+            });
+
+            funcList.Add("end", (dst, src, ext) =>
             {
                 if (dst == null && src == null)
                     return Result.ETC;
                 return Result.ERR;
             });
 
-            funcList.Add("ret", (dst, src) =>
+            funcList.Add("ret", (dst, src, ext) =>
             {
                 if (src == null)
                 {
@@ -1338,14 +1497,14 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funcList.Add("nop", (dst, src) =>
+            funcList.Add("nop", (dst, src, ext) =>
             {
                 if (dst == null && src == null)
                     return Result.OK;
                 return Result.ERR;
             });
 
-            funcList.Add("rst", (dst, src) =>
+            funcList.Add("rst", (dst, src, ext) =>
             {
                 if (dst == null && src == null)
                 {
@@ -1356,7 +1515,7 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funcList.Add("run", (dst, src) =>
+            funcList.Add("run", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1378,7 +1537,7 @@ namespace dotNSASM
                 return Result.ERR;
             });
 
-            funcList.Add("call", (dst, src) =>
+            funcList.Add("call", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1402,7 +1561,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("ld", (dst, src) =>
+            funcList.Add("ld", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1430,7 +1589,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("eval", (dst, src) => {
+            funcList.Add("eval", (dst, src, ext) => {
                 if (dst == null) return Result.ERR;
 
                 if (src == null) Eval(dst);
@@ -1443,7 +1602,31 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("use", (dst, src) =>
+            funcList.Add("par", (dst, src, ext) =>
+            {
+                if (dst == null) return Result.ERR;
+                if (src == null) return Result.ERR;
+                if (ext == null) return Result.ERR;
+
+                if (dst.type != RegType.MAP) return Result.ERR;
+                if (src.type != RegType.CODE) return Result.ERR;
+                if (ext.type != RegType.INT) return Result.ERR;
+
+                Register reg = new Register(), count = new Register();
+                count.type = RegType.INT; count.readOnly = false;
+                for (int i = 0; i < (int)ext.data; i++)
+                {
+                    count.data = i;
+                    if (funcList["eval"].Invoke(reg, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["put"].Invoke(dst, count, reg) == Result.ERR)
+                        return Result.ERR;
+                }
+
+                return Result.OK;
+            });
+
+            funcList.Add("use", (dst, src, ext) =>
             {
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1453,8 +1636,16 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("put", (dst, src) =>
+            funcList.Add("put", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["use"].Invoke(dst, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["put"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (useReg == null) return Result.ERR;
@@ -1478,8 +1669,16 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("get", (dst, src) =>
+            funcList.Add("get", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["use"].Invoke(dst, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["get"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1492,17 +1691,29 @@ namespace dotNSASM
                     if (reg == null) return Result.ERR;
                     if (!(reg.data is Map)) return Result.ERR;
                     if (!((Map)useReg.data).ContainsKey(reg)) return Result.ERR;
-                    return funcList["mov"](dst, ((Map)useReg.data)[reg]);
+                    return funcList["mov"](dst, ((Map)useReg.data)[reg], null);
                 }
                 else
                 {
                     if (!((Map)useReg.data).ContainsKey(src)) return Result.ERR;
-                    return funcList["mov"](dst, ((Map)useReg.data)[src]);
+                    return funcList["mov"](dst, ((Map)useReg.data)[src], null);
                 }
             });
 
-            funcList.Add("cat", (dst, src) =>
+            funcList.Add("cat", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["cat"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1531,8 +1742,20 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("dog", (dst, src) =>
+            funcList.Add("dog", (dst, src, ext) =>
             {
+                if (ext != null)
+                {
+                    if (funcList["push"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["dog"].Invoke(src, ext, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["mov"].Invoke(dst, src, null) == Result.ERR)
+                        return Result.ERR;
+                    if (funcList["pop"].Invoke(src, null, null) == Result.ERR)
+                        return Result.ERR;
+                    return Result.OK;
+                }
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1556,7 +1779,7 @@ namespace dotNSASM
                 return Result.OK;
             });
 
-            funcList.Add("type", (dst, src) =>
+            funcList.Add("type", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1574,10 +1797,10 @@ namespace dotNSASM
                     case RegType.CODE: reg.data = "code"; break;
                     case RegType.MAP: reg.data = "map"; break;
                 }
-                return funcList["mov"](dst, reg);
+                return funcList["mov"](dst, reg, null);
             });
 
-            funcList.Add("len", (dst, src) =>
+            funcList.Add("len", (dst, src, ext) =>
             {
                 if (dst == null) return Result.ERR;
                 if (dst.readOnly) return Result.ERR;
@@ -1596,10 +1819,10 @@ namespace dotNSASM
                     if (src.type != RegType.STR) return Result.ERR;
                     reg.data = ((string)src.data).Length;
                 }
-                return funcList["mov"](dst, reg);
+                return funcList["mov"](dst, reg, null);
             });
 
-            funcList.Add("ctn", (dst, src) =>
+            funcList.Add("ctn", (dst, src, ext) =>
             {
                 if (dst == null) return Result.ERR;
                 Register reg = new Register();
@@ -1618,10 +1841,10 @@ namespace dotNSASM
                     if (dst.type != RegType.STR) return Result.ERR;
                     reg.data = ((string)dst.data).Contains((string)src.data) ? 1 : 0;
                 }
-                return funcList["mov"](stateReg, reg);
+                return funcList["mov"](stateReg, reg, null);
             });
 
-            funcList.Add("equ", (dst, src) =>
+            funcList.Add("equ", (dst, src, ext) =>
             {
                 if (src == null) return Result.ERR;
                 if (dst == null) return Result.ERR;
@@ -1631,7 +1854,7 @@ namespace dotNSASM
                 reg.type = RegType.INT;
                 reg.readOnly = true;
                 reg.data = ((string)dst.data).Equals((string)src.data) ? 0 : 1;
-                return funcList["mov"](stateReg, reg);
+                return funcList["mov"](stateReg, reg, null);
             });
         }
     }
