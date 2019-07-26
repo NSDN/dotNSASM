@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard1.1</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <Authors>NSDN</Authors>
     <Company>NSDN</Company>
     <Description>NyaSama Assembly Script Module in .NET</Description>
@@ -11,8 +11,8 @@
     <PackageLicenseUrl>https://github.com/NSDN/NSASM</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/NSDN/dotNSASM</PackageProjectUrl>
     <PackageIconUrl>http://nya.ac.cn:32/file/nsdn.png</PackageIconUrl>
-    <PackageReleaseNotes>ver0.60 (.NET Standard 1.1)</PackageReleaseNotes>
-    <Version>0.6.0</Version>
+    <PackageReleaseNotes>ver0.61 (.NET Standard 2.0)</PackageReleaseNotes>
+    <Version>0.6.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

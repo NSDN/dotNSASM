@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 
 namespace dotNSASM
 {
@@ -93,6 +94,33 @@ namespace dotNSASM
             paramList.Add("cprt", (reg) => {
                 if (reg == null) return new Register();
                 funcList["prt"].Invoke(reg, null, null);
+                return reg;
+            });
+            paramList.Add("arg", (reg) => {
+                if (reg == null)
+                {
+                    Register res = new Register();
+                    if (argReg == null)
+                    {
+                        res.type = RegType.STR;
+                        res.readOnly = true;
+                        res.data = "null";
+                    }
+                    else
+                        res.Copy(argReg);
+                    return res;
+                }
+                return reg;
+            });
+            paramList.Add("tid", (reg) => {
+                if (reg == null)
+                {
+                    Register res = new Register();
+                    res.type = RegType.INT;
+                    res.readOnly = true;
+                    res.data = Thread.CurrentThread.ManagedThreadId;
+                    return res;
+                }
                 return reg;
             });
         }
