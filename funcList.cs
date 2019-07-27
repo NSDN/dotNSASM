@@ -290,7 +290,7 @@ namespace dotNSASM
                 {
                     if (dst.type == RegType.STR)
                     {
-                        Util.Print(((String)dst.data).Substring(dst.strPtr));
+                        Util.Print(((string)dst.data).Substring(dst.strPtr));
                     }
                     else if (dst.type == RegType.CODE)
                     {
@@ -309,7 +309,7 @@ namespace dotNSASM
                         case 0x00:
                             if (src.type == RegType.STR)
                             {
-                                Util.Print(((String)src.data).Substring(src.strPtr));
+                                Util.Print(((string)src.data).Substring(src.strPtr));
                             }
                             else if (src.type == RegType.CODE)
                             {
@@ -323,7 +323,7 @@ namespace dotNSASM
                             Util.Print("[DEBUG] >>> ");
                             if (src.type == RegType.STR)
                             {
-                                Util.Print(((String)src.data).Substring(src.strPtr));
+                                Util.Print(((string)src.data).Substring(src.strPtr));
                             }
                             else if (src.type == RegType.CODE)
                             {
@@ -346,6 +346,16 @@ namespace dotNSASM
                 if (dst == null) return Result.ERR;
                 if (src != null)
                 {
+                    if (ext != null)
+                    {
+                        Util.Print(
+                            dst.data.ToString() +
+                            src.data.ToString() +
+                            ext.data.ToString() +
+                            '\n'
+                        );
+                        return Result.OK;
+                    }
                     if (dst.type == RegType.STR)
                     {
                         if (dst.readOnly) return Result.ERR;
@@ -353,8 +363,8 @@ namespace dotNSASM
                         {
                             if (dst.data.ToString().Contains("\n"))
                             {
-                                String[] parts = dst.data.ToString().Split('\n');
-                                String res = "";
+                                string[] parts = dst.data.ToString().Split('\n');
+                                string res = "";
                                 for (int i = 0; i < parts.Length - 1; i++)
                                 {
                                     res = res + parts[i];
@@ -382,8 +392,8 @@ namespace dotNSASM
                         {
                             if (dst.data.ToString().Contains("\n"))
                             {
-                                String[] parts = dst.data.ToString().Split('\n');
-                                String res = "";
+                                string[] parts = dst.data.ToString().Split('\n');
+                                string res = "";
                                 for (int i = 0; i < parts.Length - 1; i++)
                                 {
                                     res = res + parts[i];
@@ -409,7 +419,7 @@ namespace dotNSASM
                     if (dst == null) return Result.ERR;
                     if (dst.type == RegType.STR)
                     {
-                        Util.Print(((String)dst.data).Substring(dst.strPtr) + '\n');
+                        Util.Print(((string)dst.data).Substring(dst.strPtr) + '\n');
                     }
                     else if (dst.type == RegType.CODE)
                     {
@@ -863,7 +873,7 @@ namespace dotNSASM
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.type != RegType.STR) return Result.ERR;
-                if (!VerifyWord((String)dst.data, WordType.SEG)) return Result.ERR;
+                if (!VerifyWord((string)dst.data, WordType.SEG)) return Result.ERR;
                 string segBuf, target = (string)dst.data;
                 string[] codeKeys = new string[code.Keys.Count];
                 code.Keys.CopyTo(codeKeys, 0);
@@ -885,7 +895,7 @@ namespace dotNSASM
                 if (src != null) return Result.ERR;
                 if (dst == null) return Result.ERR;
                 if (dst.type != RegType.STR) return Result.ERR;
-                if (!VerifyWord((String)dst.data, WordType.SEG)) return Result.ERR;
+                if (!VerifyWord((string)dst.data, WordType.SEG)) return Result.ERR;
                 string segBuf, target = (string)dst.data;
                 string[] codeKeys = new string[code.Keys.Count];
                 code.Keys.CopyTo(codeKeys, 0);
